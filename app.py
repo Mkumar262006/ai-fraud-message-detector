@@ -1,64 +1,86 @@
 import streamlit as st
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
 
-# =====================================
-# DATASET (Synthetic but realistic)
-# =====================================
-data = [
-    ("Congratulations! You have won ₹10,000. Click link now", "Fraud"),
-    ("Govt job offer. Pay ₹2000 registration fee today", "Fraud"),
-    ("Urgent! Your bank account will be blocked today", "Fraud"),
-    ("Free laptop scheme apply immediately", "Fraud"),
-    ("Verify Aadhaar immediately to receive benefits", "Fraud"),
-    ("PM Kisan installment credited to your account", "Genuine"),
-    ("Electricity bill reminder from TNEB", "Genuine"),
-    ("Scholarship amount credited successfully", "Genuine"),
-    ("Railway exam results announced on official website", "Genuine"),
+# ===============================
+# KEYWORD LISTS
+# ===============================
+HIGH_RISK = [
+    "pay", "fee", "deposit", "processing fee", "registration fee",
+    "click", "link", "verify", "urgent", "immediately",
+    "blocked", "suspended", "deactivated",
+    "lottery", "winner", "congratulations"
 ]
 
-df = pd.DataFrame(data, columns=["message", "label"])
+MONEY_WORDS = [
+    "₹", "rs", "rupees", "cash", "reward", "bonus", "refund"
+]
 
-# =====================================
-# MODEL TRAINING
-# =====================================
-vectorizer = TfidfVectorizer(stop_words="english")
-X = vectorizer.fit_transform(df["message"])
-y = df["label"]
+FAKE_GOV = [
+    "pmo", "govt job", "government job",
+    "pm kisan bonus", "free laptop",
+    "free gas", "army recruitment"
+]
 
-model = MultinomialNB()
-model.fit(X, y)
+# ===============================
+# FRAUD DETECTION FUNCTION
+# ===============================
+def detect_fraud(message):
+    message = message.lower()
+    score = 0
+    reasons = []
 
-# =====================================
+    for word in HIGH_RISK:
+        if word in message:
+            score += 2
+            reasons.append(f"High-risk keyword detected: '{word}'")
+
+    for word in MONEY_WORDS:
+        if word in message:
+            score += 1
+            reasons.append(f"Money-related keyword detected: '{word}'")
+
+    for word in FAKE_GOV:
+        if word in message:
+            score += 2
+            reasons.append(f"Suspicious government claim: '{word}'")
+
+    if score >= 4:
+        return "Fraud", score, reasons
+    elif score >= 2:
+        return "Suspicious", score, reasons
+    else:
+        return "Genuine", score, reasons
+
+# ===============================
 # STREAMLIT UI
-# =====================================
+# ===============================
 st.set_page_config(page_title="Fraud Message Detector", layout="centered")
 
 st.title("🔍 AI Fake Government Scheme & Job Fraud Detector")
-st.caption("Helping citizens identify scam messages using AI")
+st.caption("Explainable AI using keyword-based detection")
 
 st.markdown("---")
 
 user_message = st.text_area(
     "📩 Paste WhatsApp / SMS message here:",
-    height=150,
-    placeholder="Example: Congratulations! You are selected for govt job. Pay ₹2000 now."
+    height=150
 )
 
 if st.button("Analyze Message"):
     if user_message.strip() == "":
-        st.warning("Please enter a message to analyze.")
+        st.warning("Please enter a message.")
     else:
-        message_vector = vectorizer.transform([user_message])
-        prediction = model.predict(message_vector)[0]
+        label, score, reasons = detect_fraud(user_message)
 
-        if prediction == "Fraud":
-            st.error("🔴 FRAUD DETECTED")
-            st.write("⚠️ This message contains common scam patterns such as urgency or money requests.")
+        if label == "Fraud":
+            st.error(f"🔴 FRAUD DETECTED (Score: {score})")
+        elif label == "Suspicious":
+            st.warning(f"🟡 SUSPICIOUS MESSAGE (Score: {score})")
         else:
-            st.success("🟢 LIKELY GENUINE")
-            st.write("✅ No major fraud indicators found.")
+            st.success(f"🟢 LIKELY GENUINE (Score: {score})")
+
+        st.markdown("### 🔎 Reasons:")
+        for r in reasons:
+            st.write("•", r)
 
 st.markdown("---")
-st.caption("⚠️ This tool provides awareness support only. Always verify with official sources.")
+st.caption("⚠️ This tool provides awareness only. Always verify from official sources.")
