@@ -3,7 +3,6 @@ from twilio.twiml.messaging_response import MessagingResponse
 import sqlite3
 import os
 import re
-from datetime import datetime
 
 app = Flask(__name__)
 
@@ -16,24 +15,19 @@ DB_PATH = "scam_reports.db"
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS reported_patterns (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        keyword TEXT UNIQUE,
-        count INTEGER DEFAULT 1,
-        category TEXT,
-        last_seen TEXT
-    )
+        CREATE TABLE IF NOT EXISTS reported_patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword TEXT UNIQUE
+        )
     """)
-
     conn.commit()
     conn.close()
 
 init_db()
 
 # ==================================================
-# LANGUAGE DETECTION
+# LANGUAGE CHECK (STRICT)
 # ==================================================
 
 def is_tamil(text):
@@ -50,120 +44,87 @@ def get_language(text):
     return "EN"
 
 # ==================================================
-# KEYWORDS & DOMAINS
+# KEYWORDS
 # ==================================================
 
-SCAM_CATEGORIES = {
-    "LOTTERY": ["lottery", "winner", "prize", "jackpot", "लॉटरी", "பரிசு"],
-    "BANK_KYC": ["account", "kyc", "blocked", "verify", "bank", "खाता", "கணக்கு"],
-    "JOB_LOAN": ["job", "loan", "offer", "salary", "नौकरी", "வேலை"]
-}
+HIGH_RISK = [
+    "lottery", "winner", "claim", "urgent", "click", "verify",
+    "लॉटरी", "इनाम", "तुरंत",
+    "லாட்டரி", "பரிசு", "உடனே"
+]
 
-TRUSTED_DOMAINS = ["gov.in", "rbi.org.in", "income-tax.gov.in"]
+MONEY_WORDS = [
+    "₹", "rs", "rupees", "payment",
+    "रुपये", "भुगतान",
+    "ரூபாய்", "பணம்"
+]
+
 SUSPICIOUS_DOMAINS = [".xyz", ".win", ".click", ".online"]
 
-MONEY_WORDS = ["₹", "rs", "rupees", "रुपये", "ரூபாய்"]
-
 # ==================================================
-# COMMUNITY LEARNING
+# COMMUNITY DB
 # ==================================================
-
-def save_reported_patterns(message, category):
-    words = set(re.findall(r"\b\w+\b", message.lower()))
-    now = datetime.utcnow().isoformat()
-
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-
-    for word in words:
-        if len(word) >= 5:
-            cur.execute("""
-            INSERT INTO reported_patterns(keyword, count, category, last_seen)
-            VALUES (?, 1, ?, ?)
-            ON CONFLICT(keyword)
-            DO UPDATE SET
-                count = count + 1,
-                last_seen = ?
-            """, (word, category, now, now))
-
-    conn.commit()
-    conn.close()
 
 def get_reported_patterns():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT keyword, count, category FROM reported_patterns")
+    cur.execute("SELECT keyword FROM reported_patterns")
     rows = cur.fetchall()
     conn.close()
-    return rows
+    return [r[0] for r in rows]
+
+def save_reported_patterns(message):
+    words = set(re.findall(r"\b\w+\b", message.lower()))
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    for word in words:
+        if len(word) >= 5:
+            cur.execute(
+                "INSERT OR IGNORE INTO reported_patterns(keyword) VALUES (?)",
+                (word,)
+            )
+    conn.commit()
+    conn.close()
 
 # ==================================================
 # FRAUD DETECTION
 # ==================================================
 
-def classify_category(message):
-    msg = message.lower()
-    for cat, words in SCAM_CATEGORIES.items():
-        if any(w in msg for w in words):
-            return cat
-    return "GENERAL"
-
 def detect_fraud(message):
     msg = message.lower()
     score = 0
 
-    category = classify_category(message)
+    for w in HIGH_RISK:
+        if w.lower() in msg:
+            score += 2
 
-    # Money signals
     for w in MONEY_WORDS:
-        if w in msg:
+        if w.lower() in msg:
             score += 1
 
-    # Suspicious domains
     for d in SUSPICIOUS_DOMAINS:
         if d in msg:
             score += 2
 
-    # Trusted domain reduction
-    for d in TRUSTED_DOMAINS:
-        if d in msg:
-            score -= 3
-
-    # Community boost
-    for keyword, count, _ in get_reported_patterns():
-        if keyword in msg:
-            score += min(3, count)
-
-    # Category weight
-    if category != "GENERAL":
-        score += 2
-
-    # Confidence mapping
-    confidence = min(95, 50 + score * 10)
+    for p in get_reported_patterns():
+        if p in msg:
+            score += 3
 
     if score >= 6:
-        label = "FRAUD"
+        return "FRAUD", score
     elif score >= 3:
-        label = "SUSPICIOUS"
+        return "SUSPICIOUS", score
     else:
-        label = "GENUINE"
-
-    return label, confidence, category
+        return "GENUINE", score
 
 # ==================================================
 # ADMIN VIEW
 # ==================================================
 
-@app.route("/admin/reports")
-def admin_reports():
-    rows = get_reported_patterns()
-    return {
-        "total_patterns": len(rows),
-        "patterns": [
-            {"keyword": r[0], "count": r[1], "category": r[2]}
-            for r in rows
-        ]
-    }
+@app.route("/admin/reports", methods=["GET"])
+def view_reports():
+    patterns = get_reported_patterns()
+    return {"total_patterns": len(patterns), "patterns": patterns}
 
 # ==================================================
 # WHATSAPP WEBHOOK
@@ -173,65 +134,117 @@ last_message_cache = {}
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
-    incoming = request.values.get("Body", "").strip()
+    incoming_msg = request.values.get("Body", "").strip()
     user = request.values.get("From")
-    lang = get_language(incoming)
+    lang = get_language(incoming_msg)
 
     resp = MessagingResponse()
     reply = resp.message()
 
-    # HELP
-    if incoming.upper() == "HELP":
-        reply.body(
-            "ℹ️ *Scam Detection Bot*\n\n"
-            "• Detects fraud messages\n"
-            "• Supports Tamil / Hindi / English\n"
-            "• REPORT → help others\n"
-            "• EXIT → stop alerts"
-        )
-        return str(resp)
-
-    # EXIT
-    if incoming.upper() == "EXIT":
-        reply.body(
-            "Alerts stopped safely.\n"
-            "You can message again anytime."
-        )
-        return str(resp)
-
-    # REPORT
-    if incoming.upper() == "REPORT":
-        if user in last_message_cache:
-            msg, cat = last_message_cache[user]
-            save_reported_patterns(msg, cat)
-            reply.body("✅ Scam reported. Community protected.")
+    # ---------------- EXIT ----------------
+    if incoming_msg.upper() == "EXIT":
+        if lang == "TA":
+            reply.body(
+                "✅ அறிவிப்புகள் நிறுத்தப்பட்டன.\n"
+                "மீண்டும் தொடங்க எந்த செய்தியையும் அனுப்பலாம்.\n\n"
+                "✅ Alerts stopped safely.\n"
+                "You can send any message again anytime."
+            )
+        elif lang == "HI":
+            reply.body(
+                "✅ अलर्ट रोक दिए गए हैं।\n"
+                "फिर से शुरू करने के लिए कोई भी संदेश भेजें।\n\n"
+                "✅ Alerts stopped safely.\n"
+                "You can send any message again anytime."
+            )
         else:
-            reply.body("⚠️ Nothing to report.")
+            reply.body(
+                "✅ Alerts stopped safely.\n"
+                "You can send any message again anytime."
+            )
         return str(resp)
 
-    label, confidence, category = detect_fraud(incoming)
-    last_message_cache[user] = (incoming, category)
+    # ---------------- REPORT ----------------
+    if incoming_msg.upper() == "REPORT":
+        if user in last_message_cache:
+            save_reported_patterns(last_message_cache[user])
+            reply.body(
+                "✅ Scam reported successfully.\n"
+                "This helps protect other users."
+            )
+        else:
+            reply.body("⚠️ No recent message found to report.")
+        return str(resp)
 
-    # RESPONSE
+    last_message_cache[user] = incoming_msg
+    label, score = detect_fraud(incoming_msg)
+
+    # ---------------- RESPONSES ----------------
     if label == "FRAUD":
-        reply.body(
-            f"🔴 FRAUD ALERT\n\n"
-            f"Category: {category}\n"
-            f"Confidence: {confidence}%\n\n"
-            "Do NOT click links or send money.\n"
-            "Reply REPORT to help others."
-        )
+        if lang == "TA":
+            reply.body(
+                "🔴 மோசடி எச்சரிக்கை!\n"
+                f"ஆபத்து மதிப்பு: {score}\n\n"
+                "பணம் அனுப்ப வேண்டாம் / லிங்க் கிளிக் செய்ய வேண்டாம்.\n\n"
+                "🔴 FRAUD ALERT\n"
+                f"Risk Score: {score}\n"
+                "Do NOT click links or send money."
+            )
+        elif lang == "HI":
+            reply.body(
+                "🔴 धोखाधड़ी चेतावनी!\n"
+                f"जोखिम स्कोर: {score}\n\n"
+                "पैसे न भेजें / लिंक पर क्लिक न करें।\n\n"
+                "🔴 FRAUD ALERT\n"
+                f"Risk Score: {score}\n"
+                "Do NOT click links or send money."
+            )
+        else:
+            reply.body(
+                "🔴 FRAUD ALERT\n"
+                f"Risk Score: {score}\n"
+                "Do NOT click links or send money."
+            )
+
     elif label == "SUSPICIOUS":
-        reply.body(
-            f"🟡 SUSPICIOUS MESSAGE\n\n"
-            f"Confidence: {confidence}%\n"
-            "Please verify carefully."
-        )
+        if lang == "TA":
+            reply.body(
+                "🟡 சந்தேகமான செய்தி\n\n"
+                "சரிபார்த்த பிறகே செயல்படுங்கள்.\n\n"
+                "🟡 SUSPICIOUS MESSAGE\n"
+                "Please verify before acting."
+            )
+        elif lang == "HI":
+            reply.body(
+                "🟡 संदिग्ध संदेश\n\n"
+                "कार्य करने से पहले सत्यापित करें।\n\n"
+                "🟡 SUSPICIOUS MESSAGE\n"
+                "Please verify before acting."
+            )
+        else:
+            reply.body(
+                "🟡 SUSPICIOUS MESSAGE\n"
+                "Please verify before acting."
+            )
+
     else:
-        reply.body(
-            "🟢 LIKELY GENUINE\n"
-            "No strong scam indicators detected."
-        )
+        if lang == "TA":
+            reply.body(
+                "🟢 இந்த செய்தி பாதுகாப்பானது.\n\n"
+                "🟢 LIKELY GENUINE\n"
+                "No strong scam indicators detected."
+            )
+        elif lang == "HI":
+            reply.body(
+                "🟢 यह संदेश सुरक्षित लगता है।\n\n"
+                "🟢 LIKELY GENUINE\n"
+                "No strong scam indicators detected."
+            )
+        else:
+            reply.body(
+                "🟢 LIKELY GENUINE\n"
+                "No strong scam indicators detected."
+            )
 
     return str(resp)
 
@@ -240,4 +253,7 @@ def whatsapp_reply():
 # ==================================================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080))
+    )
