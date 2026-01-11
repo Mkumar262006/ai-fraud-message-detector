@@ -7,22 +7,22 @@ import os
 app = Flask(__name__)
 
 # ==================================================
-# SCAM KEYWORDS (MULTI-LANGUAGE)
+# SCAM KEYWORDS (ENGLISH + HINDI + TAMIL)
 # ==================================================
 
 HIGH_RISK = [
-    # -------- English --------
+    # English
     "pay", "fee", "deposit", "click", "verify", "urgent", "immediately",
     "blocked", "suspended", "lottery", "winner", "congratulations",
     "claim", "limited time", "final warning", "last chance",
-    "selected", "shortlisted", "approved", "free gift", "exclusive offer",
+    "selected", "shortlisted", "approved", "free gift",
 
-    # -------- Hindi --------
+    # Hindi
     "भुगतान", "फीस", "तुरंत", "लॉटरी", "जीता", "इनाम",
     "लाभार्थी", "चयनित", "अंतिम चेतावनी", "खाता बंद",
     "सत्यापित करें", "फ्री", "लिंक पर क्लिक करें",
 
-    # -------- Tamil --------
+    # Tamil
     "லாட்டரி", "பரிசு", "வெற்றி பெற்ற", "வென்றுள்ளீர்கள்",
     "இலவச", "கிளிக்", "லிங்க்",
     "உறுதி", "உறுதிப்படுத்தவும்", "ரத்து",
@@ -32,30 +32,24 @@ HIGH_RISK = [
 ]
 
 MONEY_WORDS = [
-    # Symbols & English
     "₹", "rs", "rupees", "cash", "reward", "bonus", "refund",
     "amount", "payment", "processing", "charges", "commission",
     "tax", "service fee",
 
-    # Hindi
     "रुपये", "धन", "शुल्क", "राशि", "भुगतान करें",
 
-    # Tamil
     "ரூபாய்", "பணம்", "கட்டணம்", "தொகை", "பணம் செலுத்த", "பரிசு தொகை"
 ]
 
 FAKE_GOV = [
-    # English
     "govt job", "government job", "pmo", "pm kisan bonus",
     "free laptop", "free gas", "army recruitment",
     "rbi approved", "govt approved", "central government",
     "prime minister scheme", "pm fund", "official notification",
 
-    # Hindi
     "सरकारी नौकरी", "पीएम किसान", "प्रधानमंत्री योजना",
     "सरकारी सहायता", "सरकार द्वारा",
 
-    # Tamil
     "அரசு வேலை", "இலவச லேப்டாப்",
     "அரசு திட்டம்", "பிரதமர் திட்டம்",
     "அதிகாரப்பூர்வ அறிவிப்பு"
@@ -71,12 +65,12 @@ def detect_urgency(message):
         "உடனே", "உடனடியாக", "நிமிடம்", "மணி", "இன்றே",
         "तुरंत", "आज"
     ]
-    return any(word in message.lower() for word in urgency_words)
+    return any(w in message.lower() for w in urgency_words)
 
 def has_suspicious_link(message):
     return any(
-        link in message.lower()
-        for link in ["http://", "https://", "www.", ".xyz", ".win", ".click", ".online"]
+        x in message.lower()
+        for x in ["http://", "https://", "www.", ".xyz", ".win", ".click", ".online"]
     )
 
 # ==================================================
@@ -125,11 +119,11 @@ def detect_fraud(message):
 # ==================================================
 
 def highlight_words(message, words):
-    highlighted = message
+    out = message
     for w in set(words):
         if w in message:
-            highlighted = highlighted.replace(w, f"*{w}*")
-    return highlighted
+            out = out.replace(w, f"*{w}*")
+    return out
 
 # ==================================================
 # LOG FRAUD (ANONYMOUS)
@@ -137,8 +131,7 @@ def highlight_words(message, words):
 
 def log_fraud(message, score):
     with open("fraud_logs.csv", "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([
+        csv.writer(f).writerow([
             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             score,
             message[:200]
@@ -155,20 +148,12 @@ def whatsapp_reply():
     resp = MessagingResponse()
     reply = resp.message()
 
-    # EXIT command (sandbox-safe)
     if incoming_msg.upper() == "EXIT":
-        reply.body(
-            "✅ *Alerts stopped safely.*\n\n"
-            "You can send any message again anytime to restart."
-        )
+        reply.body("✅ Alerts stopped safely.\nSend any message to restart.")
         return str(resp)
 
-    # REPORT command
     if incoming_msg.upper() == "REPORT":
-        reply.body(
-            "✅ *Thank you for reporting this scam.*\n\n"
-            "The pattern has been logged anonymously."
-        )
+        reply.body("✅ Thank you. Scam reported anonymously.")
         return str(resp)
 
     label, score, matched = detect_fraud(incoming_msg)
@@ -177,46 +162,38 @@ def whatsapp_reply():
     if label == "FRAUD":
         log_fraud(incoming_msg, score)
         reply.body(
-            "🔴 *FRAUD ALERT*\n\n"
-            f"📝 *Message Analysis:*\n{highlighted}\n\n"
-            f"🚦 *Risk Score:* {score}\n\n"
+            f"🔴 *FRAUD ALERT*\n\n{highlighted}\n\n"
+            f"🚦 Risk Score: {score}\n\n"
             "⚠️ Do NOT click links or send money.\n\n"
-            "👉 Reply *REPORT* to report this scam\n"
-            "👉 Reply *EXIT* to stop alerts\n\n"
-            "🔗 Official verification portals:\n"
-            "https://www.india.gov.in\n"
-            "https://www.cybercrime.gov.in"
+            "Reply REPORT to report | EXIT to stop alerts\n\n"
+            "🔗 https://www.india.gov.in\n"
+            "🔗 https://www.cybercrime.gov.in"
         )
 
     elif label == "SUSPICIOUS":
         reply.body(
-            "🟡 *SUSPICIOUS MESSAGE*\n\n"
-            f"📝 *Message Analysis:*\n{highlighted}\n\n"
-            f"🚦 *Risk Score:* {score}\n\n"
-            "Please verify before acting.\n\n"
-            "👉 Reply *EXIT* to stop alerts\n\n"
-            "🔗 https://www.india.gov.in"
+            f"🟡 *SUSPICIOUS MESSAGE*\n\n{highlighted}\n\n"
+            f"🚦 Risk Score: {score}\n\n"
+            "Please verify before acting.\n"
+            "Reply EXIT to stop alerts."
         )
 
     else:
         reply.body(
             "🟢 *LIKELY GENUINE*\n\n"
-            "No major scam indicators detected.\n"
-            "Still verify from official sources.\n\n"
-            "👉 Reply *EXIT* to stop alerts\n\n"
-            "🔗 https://www.india.gov.in"
+            "No strong scam indicators detected.\n"
+            "Always verify from official sources.\n"
+            "Reply EXIT to stop alerts."
         )
 
     return str(resp)
 
 # ==================================================
-# START SERVER (CLOUD SAFE)
-# ========
-import os
+# START SERVER (RAILWAY SAFE)
+# ==================================================
 
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000))
     )
-
