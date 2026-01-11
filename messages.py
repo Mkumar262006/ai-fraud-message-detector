@@ -89,52 +89,71 @@ def whatsapp_reply():
     incoming_msg = request.values.get("Body", "").strip()
 
     resp = MessagingResponse()
-    msg = resp.message()
+    reply = resp.message()
 
-    # REPORT command
-    if incoming_msg.upper() == "REPORT":
-        msg.body(
-            "✅ *Thank you for reporting.*\n\n"
-            "This scam pattern has been anonymously logged.\n"
-            "Your identity is NOT stored."
+    # ------------------------------
+    # EXIT command (SAFE replacement for STOP)
+    # ------------------------------
+    if incoming_msg.upper() == "EXIT":
+        reply.body(
+            "✅ *You have exited scam alerts.*\n\n"
+            "You will no longer receive automated responses.\n"
+            "You can send any message again anytime to restart."
         )
         return str(resp)
 
+    # ------------------------------
+    # REPORT command
+    # ------------------------------
+    if incoming_msg.upper() == "REPORT":
+        reply.body(
+            "✅ *Thank you for reporting this scam.*\n\n"
+            "The pattern has been logged anonymously.\n"
+            "Your phone number is NOT stored."
+        )
+        return str(resp)
+
+    # ------------------------------
+    # FRAUD DETECTION
+    # ------------------------------
     label, score, matched = detect_fraud(incoming_msg)
-    highlighted_text = highlight_words(incoming_msg, matched)
+    highlighted_msg = highlight_words(incoming_msg, matched)
 
     if label == "FRAUD":
         log_fraud(incoming_msg, score)
-        msg.body(
+        reply.body(
             "🔴 *FRAUD ALERT*\n\n"
-            f"📝 Message Analysis:\n{highlighted_text}\n\n"
-            f"🚦 Risk Score: {score}\n\n"
+            f"📝 *Message Analysis:*\n{highlighted_msg}\n\n"
+            f"🚦 *Risk Score:* {score}\n\n"
             "⚠️ Do NOT click links or send money.\n\n"
-            "👉 Reply *REPORT* to report this scam\n\n"
-            "🔗 Verify schemes only on:\n"
+            "👉 Reply *REPORT* to report this scam\n"
+            "👉 Reply *EXIT* to stop alerts\n\n"
+            "🔗 Verify only on official portals:\n"
             "https://www.india.gov.in\n"
-            "https://cybercrime.gov.in"
+            "https://www.cybercrime.gov.in"
         )
 
     elif label == "SUSPICIOUS":
-        msg.body(
+        reply.body(
             "🟡 *SUSPICIOUS MESSAGE*\n\n"
-            f"📝 Message Analysis:\n{highlighted_text}\n\n"
-            f"🚦 Risk Score: {score}\n\n"
+            f"📝 *Message Analysis:*\n{highlighted_msg}\n\n"
+            f"🚦 *Risk Score:* {score}\n\n"
             "Please verify before acting.\n\n"
-            "🔗 Official portals:\n"
-            "https://www.india.gov.in"
+            "👉 Reply *EXIT* to stop alerts\n\n"
+            "🔗 https://www.india.gov.in"
         )
 
     else:
-        msg.body(
+        reply.body(
             "🟢 *LIKELY GENUINE*\n\n"
             "No major scam indicators detected.\n"
             "Still verify from official sources.\n\n"
+            "👉 Reply *EXIT* to stop alerts\n\n"
             "🔗 https://www.india.gov.in"
         )
 
     return str(resp)
+
 
 import os
 
@@ -143,4 +162,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000))
     )
+
 
