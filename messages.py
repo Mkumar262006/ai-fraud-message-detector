@@ -1,78 +1,80 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
+import sqlite3
 import os
+import re
 
 app = Flask(__name__)
 
+DB_PATH = "scam_reports.db"
+
 # ==================================================
-# SCAM KEYWORDS (ENGLISH + HINDI + TAMIL)
+# DATABASE SETUP
+# ==================================================
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS reported_patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keyword TEXT UNIQUE
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ==================================================
+# BASE SCAM KEYWORDS
 # ==================================================
 
 HIGH_RISK = [
-    # English
-    "pay", "fee", "deposit", "click", "verify", "urgent", "immediately",
-    "blocked", "suspended", "lottery", "winner", "congratulations",
-    "claim", "limited time", "final warning", "last chance",
-    "selected", "shortlisted", "approved", "free gift",
-
-    # Hindi
-    "भुगतान", "फीस", "तुरंत", "लॉटरी", "जीता", "इनाम",
-    "लाभार्थी", "चयनित", "अंतिम चेतावनी", "खाता बंद",
-    "सत्यापित करें", "फ्री", "लिंक पर क्लिक करें",
-
-    # Tamil
-    "லாட்டரி", "பரிசு", "வெற்றி பெற்ற", "வென்றுள்ளீர்கள்",
-    "இலவச", "கிளிக்", "லிங்க்",
-    "உறுதி", "உறுதிப்படுத்தவும்", "ரத்து",
-    "இறுதி எச்சரிக்கை", "கணக்கு முடக்கப்படும்",
-    "உடனே", "உடனடியாக", "உடனடி நடவடிக்கை",
-    "தேர்ந்தெடுக்கப்பட்டுள்ளீர்கள்"
+    "lottery", "winner", "congratulations", "claim", "urgent",
+    "click", "verify", "limited time", "free gift",
+    "लॉटरी", "इनाम", "तुरंत",
+    "லாட்டரி", "பரிசு", "உடனே"
 ]
 
 MONEY_WORDS = [
-    "₹", "rs", "rupees", "cash", "reward", "bonus", "refund",
-    "amount", "payment", "processing", "charges", "commission",
-    "tax", "service fee",
-
-    "रुपये", "धन", "शुल्क", "राशि", "भुगतान करें",
-
-    "ரூபாய்", "பணம்", "கட்டணம்", "தொகை", "பணம் செலுத்த", "பரிசு தொகை"
+    "₹", "rs", "rupees", "payment", "fee",
+    "रुपये", "भुगतान",
+    "ரூபாய்", "பணம்"
 ]
 
-FAKE_GOV = [
-    "govt job", "government job", "pmo", "pm kisan bonus",
-    "free laptop", "free gas", "army recruitment",
-    "rbi approved", "govt approved", "central government",
-    "prime minister scheme", "pm fund", "official notification",
-
-    "सरकारी नौकरी", "पीएम किसान", "प्रधानमंत्री योजना",
-    "सरकारी सहायता", "सरकार द्वारा",
-
-    "அரசு வேலை", "இலவச லேப்டாப்",
-    "அரசு திட்டம்", "பிரதமர் திட்டம்",
-    "அதிகாரப்பூர்வ அறிவிப்பு"
-]
+SUSPICIOUS_DOMAINS = [".xyz", ".win", ".click", ".online"]
 
 # ==================================================
-# EXTRA SCAM HEURISTICS
+# COMMUNITY PATTERN FUNCTIONS
 # ==================================================
 
-def detect_urgency(message):
-    urgency_words = [
-        "minutes", "minute", "hours", "today",
-        "உடனே", "உடனடியாக", "நிமிடம்", "மணி", "இன்றே",
-        "तुरंत", "आज"
-    ]
-    return any(word in message.lower() for word in urgency_words)
+def get_reported_patterns():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT keyword FROM reported_patterns")
+    rows = cur.fetchall()
+    conn.close()
+    return [r[0] for r in rows]
 
-def has_suspicious_link(message):
-    return any(
-        link in message.lower()
-        for link in ["http://", "https://", "www.", ".xyz", ".win", ".click", ".online"]
-    )
+def save_reported_patterns(message):
+    words = set(re.findall(r"\b\w+\b", message.lower()))
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    for word in words:
+        if len(word) >= 5:  # avoid noise
+            try:
+                cur.execute(
+                    "INSERT OR IGNORE INTO reported_patterns(keyword) VALUES (?)",
+                    (word,)
+                )
+            except:
+                pass
+    conn.commit()
+    conn.close()
 
 # ==================================================
-# FRAUD DETECTION LOGIC
+# FRAUD DETECTION
 # ==================================================
 
 def detect_fraud(message):
@@ -80,30 +82,29 @@ def detect_fraud(message):
     score = 0
     matched = []
 
-    for word in HIGH_RISK:
-        if word.lower() in msg:
+    for w in HIGH_RISK:
+        if w in msg:
             score += 2
-            matched.append(word)
+            matched.append(w)
 
-    for word in MONEY_WORDS:
-        if word.lower() in msg:
+    for w in MONEY_WORDS:
+        if w in msg:
             score += 1
-            matched.append(word)
+            matched.append(w)
 
-    for word in FAKE_GOV:
-        if word.lower() in msg:
+    for d in SUSPICIOUS_DOMAINS:
+        if d in msg:
             score += 2
-            matched.append(word)
+            matched.append(d)
 
-    if detect_urgency(message):
-        score += 2
-        matched.append("urgency")
+    # 🔥 COMMUNITY LEARNING BOOST
+    reported_patterns = get_reported_patterns()
+    for p in reported_patterns:
+        if p in msg:
+            score += 3
+            matched.append(f"community:{p}")
 
-    if has_suspicious_link(message):
-        score += 2
-        matched.append("suspicious link")
-
-    if score >= 5:
+    if score >= 6:
         label = "FRAUD"
     elif score >= 3:
         label = "SUSPICIOUS"
@@ -113,90 +114,65 @@ def detect_fraud(message):
     return label, score, matched
 
 # ==================================================
-# HIGHLIGHT SCAM WORDS
-# ==================================================
-
-def highlight_words(message, words):
-    highlighted = message
-    for w in set(words):
-        if w in message:
-            highlighted = highlighted.replace(w, f"*{w}*")
-    return highlighted
-
-# ==================================================
-# SAFE CONSOLE LOGGING (NO FILE WRITE)
-# ==================================================
-
-def log_fraud(message, score):
-    print("FRAUD DETECTED | SCORE:", score)
-    print("MESSAGE:", message[:150])
-
-# ==================================================
 # WHATSAPP WEBHOOK
 # ==================================================
+
+last_message_cache = {}
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
     incoming_msg = request.values.get("Body", "").strip()
-    print("INCOMING MESSAGE:", incoming_msg)
+    user = request.values.get("From")
 
     resp = MessagingResponse()
     reply = resp.message()
 
-    # EXIT command (sandbox-safe)
     if incoming_msg.upper() == "EXIT":
-        reply.body(
-            "✅ Alerts stopped safely.\n\n"
-            "You can send any message again anytime to restart."
-        )
+        reply.body("✅ Alerts stopped safely.")
         return str(resp)
 
-    # REPORT command
     if incoming_msg.upper() == "REPORT":
-        reply.body(
-            "✅ Thank you.\n"
-            "This scam pattern has been logged anonymously."
-        )
+        if user in last_message_cache:
+            save_reported_patterns(last_message_cache[user])
+            reply.body(
+                "✅ Scam reported successfully.\n\n"
+                "This information will help protect other users."
+            )
+        else:
+            reply.body("⚠️ No recent message found to report.")
         return str(resp)
+
+    # Save last message for REPORT
+    last_message_cache[user] = incoming_msg
 
     label, score, matched = detect_fraud(incoming_msg)
-    highlighted = highlight_words(incoming_msg, matched)
 
     if label == "FRAUD":
-        log_fraud(incoming_msg, score)
         reply.body(
             "🔴 *FRAUD ALERT*\n\n"
-            f"{highlighted}\n\n"
             f"🚦 Risk Score: {score}\n\n"
             "⚠️ Do NOT click links or send money.\n\n"
-            "👉 Reply *REPORT* to report this scam\n"
-            "👉 Reply *EXIT* to stop alerts\n\n"
-            "🔗 Official verification:\n"
-            "https://www.india.gov.in\n"
-            "https://www.cybercrime.gov.in"
+            "👉 Reply *REPORT* to help others\n"
+            "👉 Reply *EXIT* to stop alerts"
         )
 
     elif label == "SUSPICIOUS":
         reply.body(
             "🟡 *SUSPICIOUS MESSAGE*\n\n"
-            f"{highlighted}\n\n"
             f"🚦 Risk Score: {score}\n\n"
-            "Please verify before acting.\n\n"
-            "👉 Reply *EXIT* to stop alerts"
+            "Please verify before acting."
         )
 
     else:
         reply.body(
             "🟢 *LIKELY GENUINE*\n\n"
-            "No strong scam indicators detected.\n"
-            "Still verify from official sources.\n\n"
-            "👉 Reply *EXIT* to stop alerts"
+            "No strong scam indicators detected."
         )
 
     return str(resp)
 
 # ==================================================
-# START SERVER (RAILWAY SAFE)
+# SERVER START
 # ==================================================
 
 if __name__ == "__main__":
