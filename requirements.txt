@@ -1,4 +1,2 @@
-streamlit
-scikit-learn
-pandas
-numpy
+flask
+twilio
