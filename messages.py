@@ -11,24 +11,36 @@ app = Flask(__name__)
 # DATABASE
 # ==================================================
 
-DB_PATH = "scam_messages.db"
+DB_PATH = "scam_system.db"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+
+    # Confirmed scams
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS scam_texts (
+        CREATE TABLE IF NOT EXISTS confirmed_scams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT UNIQUE
         )
     """)
+
+    # Pending (reported but not confirmed)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pending_scams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message TEXT,
+            reporter TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
 init_db()
 
 # ==================================================
-# LANGUAGE DETECTION (STRICT)
+# LANGUAGE DETECTION
 # ==================================================
 
 def is_tamil(text):
@@ -45,67 +57,88 @@ def get_language(text):
     return "EN"
 
 # ==================================================
-# NLP SIMILARITY (INTERNAL ONLY)
+# NLP SIMILARITY (INTERNAL)
 # ==================================================
 
-SIMILARITY_HIGH = 0.65
-SIMILARITY_MEDIUM = 0.40
+SIM_HIGH = 0.65
+SIM_MED = 0.40
+LEARN_THRESHOLD = 3  # 👈 very important
 
-def get_scam_messages():
+def get_confirmed():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT message FROM scam_texts")
+    cur.execute("SELECT message FROM confirmed_scams")
     rows = cur.fetchall()
     conn.close()
     return [r[0] for r in rows]
 
-def save_scam_message(msg):
+def get_pending():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT message FROM pending_scams")
+    rows = cur.fetchall()
+    conn.close()
+    return [r[0] for r in rows]
+
+def save_pending(msg, reporter):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
-        "INSERT OR IGNORE INTO scam_texts(message) VALUES (?)",
+        "INSERT INTO pending_scams(message, reporter) VALUES (?, ?)",
+        (msg, reporter)
+    )
+    conn.commit()
+    conn.close()
+
+def promote_to_confirmed(msg):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",
+        (msg,)
+    )
+    cur.execute(
+        "DELETE FROM pending_scams WHERE message = ?",
         (msg,)
     )
     conn.commit()
     conn.close()
 
-def compute_similarity(new_msg):
-    scams = get_scam_messages()
-    if not scams:
+def similarity_score(msg, corpus):
+    if not corpus:
         return 0.0
-    corpus = scams + [new_msg]
-    tfidf = TfidfVectorizer().fit_transform(corpus)
+    texts = corpus + [msg]
+    tfidf = TfidfVectorizer().fit_transform(texts)
     scores = cosine_similarity(tfidf[-1], tfidf[:-1])
     return max(scores[0])
 
 # ==================================================
-# RULE-BASED SCORING
+# RULE-BASED CHECK
 # ==================================================
 
 SCAM_WORDS = [
-    "lottery", "winner", "prize", "claim", "urgent", "click",
+    "lottery", "winner", "prize", "urgent", "click",
+    "invest", "investment", "returns", "profit",
+    "crypto", "bitcoin", "act fast",
     "₹", "rs",
     "லாட்டரி", "பரிசு",
     "लॉटरी", "इनाम"
 ]
 
 def rule_score(msg):
-    score = 0
-    for w in SCAM_WORDS:
-        if w.lower() in msg.lower():
-            score += 1
-    return score
+    return sum(1 for w in SCAM_WORDS if w.lower() in msg.lower())
 
 # ==================================================
-# ADMIN DASHBOARD (INTERNAL VIEW)
+# ADMIN DASHBOARD
 # ==================================================
 
 @app.route("/admin/dashboard")
 def admin_dashboard():
-    scams = get_scam_messages()
     return {
-        "total_scam_samples": len(scams),
-        "recent_samples": scams[-5:]
+        "confirmed_scams": len(get_confirmed()),
+        "pending_reports": len(get_pending()),
+        "recent_confirmed": get_confirmed()[-5:],
+        "recent_pending": get_pending()[-5:]
     }
 
 # ==================================================
@@ -127,151 +160,87 @@ def whatsapp_reply():
     if incoming.upper() == "EXIT":
         if lang == "TA":
             reply.body(
-                "✅ அறிவிப்புகள் நிறுத்தப்பட்டன.\n"
-                "மீண்டும் எந்த செய்தியையும் அனுப்பலாம்.\n\n"
-                "✅ Alerts stopped safely.\n"
-                "You can message again anytime."
+                "✅ அறிவிப்புகள் நிறுத்தப்பட்டன.\n\n"
+                "Alerts stopped safely."
             )
         elif lang == "HI":
             reply.body(
-                "✅ अलर्ट रोक दिए गए हैं।\n"
-                "आप फिर से कोई भी संदेश भेज सकते हैं।\n\n"
-                "✅ Alerts stopped safely.\n"
-                "You can message again anytime."
+                "✅ अलर्ट बंद कर दिए गए हैं।\n\n"
+                "Alerts stopped safely."
             )
         else:
-            reply.body(
-                "✅ Alerts stopped safely.\n"
-                "You can message again anytime."
-            )
+            reply.body("Alerts stopped safely.")
         return str(resp)
 
     # ---------------- REPORT ----------------
     if incoming.upper() == "REPORT":
         if user in last_message_cache:
-            last_msg, last_label = last_message_cache[user]
-            if last_label == "FRAUD":
-                save_scam_message(last_msg)
+            msg, label = last_message_cache[user]
+            if label in ["FRAUD", "CAUTION"]:
+                save_pending(msg, user)
                 reply.body(
-                    "✅ Scam reported.\n"
-                    "This helps protect others."
+                    "⚠️ Report received.\n"
+                    "We monitor similar patterns over time."
                 )
             else:
                 reply.body(
-                    "⚠️ Report noted.\n"
-                    "We monitor similar patterns over time."
+                    "ℹ️ Report noted.\n"
+                    "No immediate risk detected."
                 )
         else:
-            reply.body("⚠️ No message to report.")
+            reply.body("No message to report.")
         return str(resp)
 
     # ---------------- DETECTION ----------------
     r_score = rule_score(incoming)
-    sim_score = compute_similarity(incoming)  # internal only
 
-    if r_score >= 3 or sim_score >= SIMILARITY_HIGH:
+    confirmed_sim = similarity_score(incoming, get_confirmed())
+    pending_sim = similarity_score(incoming, get_pending())
+
+    # learning logic
+    if pending_sim >= SIM_HIGH:
+        promote_to_confirmed(incoming)
+
+    pending_count = sum(
+        1 for p in get_pending()
+        if similarity_score(incoming, [p]) >= SIM_HIGH
+    )
+
+    if r_score >= 3 or confirmed_sim >= SIM_HIGH or pending_count >= LEARN_THRESHOLD:
         label = "FRAUD"
-    elif r_score == 2:
-        label = "SUSPICIOUS"
-    elif sim_score >= SIMILARITY_MEDIUM:
+    elif r_score >= 2 or pending_sim >= SIM_MED:
         label = "CAUTION"
     else:
         label = "GENUINE"
 
     last_message_cache[user] = (incoming, label)
 
-    # ---------------- RESPONSE (LANGUAGE-AWARE) ----------------
+    # ---------------- RESPONSE ----------------
+    def bilingual(ta, en, hi=None):
+        if lang == "TA":
+            return f"{ta}\n\n{en}"
+        if lang == "HI":
+            return f"{hi}\n\n{en}"
+        return en
+
     if label == "FRAUD":
-        if lang == "TA":
-            reply.body(
-                "🔴 மோசடி எச்சரிக்கை!\n"
-                "இந்த செய்தி ஆபத்தானது.\n"
-                "பணம் அல்லது விவரங்களை பகிர வேண்டாம்.\n\n"
-                "🔴 FRAUD ALERT\n"
-                "This message shows strong scam indicators.\n"
-                "Do NOT share details or click links."
-            )
-        elif lang == "HI":
-            reply.body(
-                "🔴 धोखाधड़ी चेतावनी!\n"
-                "यह संदेश खतरनाक हो सकता है।\n"
-                "पैसे या व्यक्तिगत जानकारी साझा न करें।\n\n"
-                "🔴 FRAUD ALERT\n"
-                "This message shows strong scam indicators.\n"
-                "Do NOT share details or click links."
-            )
-        else:
-            reply.body(
-                "🔴 FRAUD ALERT\n\n"
-                "This message shows strong scam indicators.\n"
-                "Do NOT share details or click links."
-            )
-
-    elif label == "SUSPICIOUS":
-        if lang == "TA":
-            reply.body(
-                "🟡 சந்தேகமான செய்தி\n"
-                "சரிபார்த்த பிறகு மட்டும் செயல்படுங்கள்.\n\n"
-                "🟡 SUSPICIOUS MESSAGE\n"
-                "Please verify before acting."
-            )
-        elif lang == "HI":
-            reply.body(
-                "🟡 संदिग्ध संदेश\n"
-                "कार्य करने से पहले सत्यापित करें।\n\n"
-                "🟡 SUSPICIOUS MESSAGE\n"
-                "Please verify before acting."
-            )
-        else:
-            reply.body(
-                "🟡 SUSPICIOUS MESSAGE\n"
-                "Please verify before acting."
-            )
-
+        reply.body(bilingual(
+            "🔴 மோசடி எச்சரிக்கை!\nஇந்த செய்தி ஆபத்தானது.",
+            "🔴 FRAUD ALERT\nDo NOT share details or click links.",
+            "🔴 धोखाधड़ी चेतावनी!\nयह संदेश खतरनाक है।"
+        ))
     elif label == "CAUTION":
-        if lang == "TA":
-            reply.body(
-                "🟠 எச்சரிக்கை\n"
-                "இந்த செய்தியை முழுமையாக சரிபார்க்க முடியவில்லை.\n"
-                "தனிப்பட்ட தகவல்களை பகிர வேண்டாம்.\n\n"
-                "🟠 CAUTION\n"
-                "We cannot fully verify this message.\n"
-                "Do NOT share personal details."
-            )
-        elif lang == "HI":
-            reply.body(
-                "🟠 सावधानी\n"
-                "इस संदेश की पूरी तरह पुष्टि नहीं हो सकी।\n"
-                "व्यक्तिगत जानकारी साझा न करें।\n\n"
-                "🟠 CAUTION\n"
-                "We cannot fully verify this message.\n"
-                "Do NOT share personal details."
-            )
-        else:
-            reply.body(
-                "🟠 CAUTION\n\n"
-                "We cannot fully verify this message.\n"
-                "Do NOT share personal details."
-            )
-
+        reply.body(bilingual(
+            "🟠 எச்சரிக்கை\nஇந்த செய்தியை முழுமையாக சரிபார்க்க முடியவில்லை.",
+            "🟠 CAUTION\nWe cannot fully verify this message.",
+            "🟠 सावधानी\nइस संदेश की पुष्टि नहीं हो सकी।"
+        ))
     else:
-        if lang == "TA":
-            reply.body(
-                "🟢 இந்த செய்தி பாதுகாப்பாக இருக்கலாம்.\n\n"
-                "🟢 LIKELY GENUINE\n"
-                "No strong scam indicators detected."
-            )
-        elif lang == "HI":
-            reply.body(
-                "🟢 यह संदेश सुरक्षित लग रहा है।\n\n"
-                "🟢 LIKELY GENUINE\n"
-                "No strong scam indicators detected."
-            )
-        else:
-            reply.body(
-                "🟢 LIKELY GENUINE\n"
-                "No strong scam indicators detected."
-            )
+        reply.body(bilingual(
+            "🟢 இந்த செய்தி பாதுகாப்பாக இருக்கலாம்.",
+            "🟢 LIKELY GENUINE\nNo strong scam indicators detected.",
+            "🟢 यह संदेश सुरक्षित लगता है।"
+        ))
 
     return str(resp)
 
