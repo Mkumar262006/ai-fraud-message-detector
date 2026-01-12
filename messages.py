@@ -50,7 +50,7 @@ def detect_language(text):
     return "EN"
 
 # ==================================================
-# BANK IMPERSONATION & SENSITIVE DATA RULE (NEW)
+# BANK IMPERSONATION & SENSITIVE DATA RULE
 # ==================================================
 
 BANK_KEYWORDS = [
@@ -61,19 +61,13 @@ BANK_KEYWORDS = [
 ]
 
 SENSITIVE_DATA_REQUESTS = [
-    "send your bank details",
-    "share bank details",
-    "provide account details",
-    "verify your account",
-    "renewal of service",
-    "send card details",
+    "send your bank details", "share bank details",
+    "provide account details", "verify your account",
+    "renewal of service", "send card details",
     "send account number",
 
-    "बैंक विवरण भेजें",
-    "खाता विवरण साझा करें",
-
-    "வங்கி விவரங்களை அனுப்பவும்",
-    "கணக்கு விவரங்களை பகிரவும்"
+    "बैंक विवरण भेजें", "खाता विवरण साझा करें",
+    "வங்கி விவரங்களை அனுப்பவும்", "கணக்கு விவரங்களை பகிரவும்"
 ]
 
 URGENCY_PHRASES = [
@@ -86,16 +80,15 @@ URGENCY_PHRASES = [
 ]
 
 def is_text_only_bank_scam(text):
-    text_l = text.lower()
-    if any(b in text_l for b in BANK_KEYWORDS):
-        if any(s in text_l for s in SENSITIVE_DATA_REQUESTS):
-            return True
-        if any(u in text_l for u in URGENCY_PHRASES):
-            return True
-    return False
+    t = text.lower()
+    return (
+        any(b in t for b in BANK_KEYWORDS)
+        and (any(s in t for s in SENSITIVE_DATA_REQUESTS)
+             or any(u in t for u in URGENCY_PHRASES))
+    )
 
 # ==================================================
-# UNVERIFIED FINANCIAL HELP REQUEST (CAUTION)
+# UNVERIFIED FINANCIAL HELP REQUEST
 # ==================================================
 
 FINANCIAL_HELP_KEYWORDS = [
@@ -106,10 +99,10 @@ FINANCIAL_HELP_KEYWORDS = [
 ]
 
 def is_unverified_financial_request(text):
-    if any(k in text.lower() for k in FINANCIAL_HELP_KEYWORDS):
-        if re.search(r"\b\d{9,13}\b", text):
-            return True
-    return False
+    return (
+        any(k in text.lower() for k in FINANCIAL_HELP_KEYWORDS)
+        and re.search(r"\b\d{9,13}\b", text)
+    )
 
 # ==================================================
 # SIMILARITY & FAIR LEARNING
@@ -139,7 +132,6 @@ def save_pending(msg, reporter):
 def promote_if_trusted(msg):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("""
         SELECT COUNT(DISTINCT reporter)
         FROM pending_scams WHERE message=?
@@ -153,7 +145,6 @@ def promote_if_trusted(msg):
         )
         cur.execute("DELETE FROM pending_scams WHERE message=?", (msg,))
         conn.commit()
-
     conn.close()
 
 def similarity(msg, corpus):
@@ -181,39 +172,44 @@ def whatsapp():
         reply.body("Alerts stopped safely.")
         return str(resp)
 
-    # ===== CORE DECISION =====
+    # -------- CORE DECISION --------
     if is_text_only_bank_scam(incoming):
         label = "FRAUD"
     elif is_unverified_financial_request(incoming):
         label = "CAUTION"
     else:
-        confirmed = fetch("confirmed_scams")
-        pending = fetch("pending_scams")
-
-        if similarity(incoming, confirmed) > SIM_THRESHOLD:
+        if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
             label = "FRAUD"
-        elif similarity(incoming, pending) > SIM_THRESHOLD:
+        elif similarity(incoming, fetch("pending_scams")) > SIM_THRESHOLD:
             label = "CAUTION"
         else:
             label = "GENUINE"
 
     last_seen[user] = (incoming, label)
 
-    # ===== REPORT HANDLING (FAIR REPORTING) =====
+    # -------- REPORT HANDLING --------
     if incoming.upper() == "REPORT":
         if user in last_seen:
             msg, lbl = last_seen[user]
             if lbl != "GENUINE":
                 save_pending(msg, user)
                 promote_if_trusted(msg)
-                reply.body("Report received. We verify using multiple independent reports.")
+
+                reply.body(
+                    "✅ Report received.\n\n"
+                    "You can also report this officially:\n\n"
+                    "🇮🇳 Cybercrime Portal:\nhttps://cybercrime.gov.in\n\n"
+                    "🏦 RBI Banking Complaints:\nhttps://cms.rbi.org.in\n\n"
+                    "📱 Spam / SMS (TRAI):\nhttps://sancharsaathi.gov.in\n\n"
+                    "Your report helps protect others."
+                )
             else:
-                reply.body("Thank you. No immediate risk detected.")
+                reply.body("Thank you. This message shows no immediate scam indicators.")
         else:
-            reply.body("No recent message to report.")
+            reply.body("No recent message available to report.")
         return str(resp)
 
-    # ===== MULTILINGUAL RESPONSE =====
+    # -------- MULTILINGUAL RESPONSE --------
     def respond(ta, en, hi):
         if lang == "TA":
             return f"{ta}\n\n{en}"
@@ -224,7 +220,7 @@ def whatsapp():
     if label == "FRAUD":
         reply.body(respond(
             "🔴 மோசடி எச்சரிக்கை!\nவங்கிகள் எப்போதும் விவரங்களை கேட்காது.",
-            "🔴 FRAUD ALERT\nBanks never ask for details via message.",
+            "🔴 FRAUD ALERT\nBanks never ask for details via messages.",
             "🔴 धोखाधड़ी चेतावनी!\nबैंक कभी विवरण नहीं मांगते।"
         ))
     elif label == "CAUTION":
