@@ -17,20 +17,20 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    # Confirmed scams
     cur.execute("""
         CREATE TABLE IF NOT EXISTS confirmed_scams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message TEXT UNIQUE
+            message TEXT UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # Pending (reported but not confirmed)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS pending_scams (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT,
-            reporter TEXT
+            reporter TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -62,20 +62,12 @@ def get_language(text):
 
 SIM_HIGH = 0.65
 SIM_MED = 0.40
-LEARN_THRESHOLD = 3  # 👈 very important
+LEARN_THRESHOLD = 3
 
-def get_confirmed():
+def fetch_messages(table):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT message FROM confirmed_scams")
-    rows = cur.fetchall()
-    conn.close()
-    return [r[0] for r in rows]
-
-def get_pending():
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT message FROM pending_scams")
+    cur.execute(f"SELECT message FROM {table}")
     rows = cur.fetchall()
     conn.close()
     return [r[0] for r in rows]
@@ -113,20 +105,94 @@ def similarity_score(msg, corpus):
     return max(scores[0])
 
 # ==================================================
-# RULE-BASED CHECK
+# KEYWORDS + OTP CONTEXT LOGIC
 # ==================================================
 
-SCAM_WORDS = [
-    "lottery", "winner", "prize", "urgent", "click",
-    "invest", "investment", "returns", "profit",
-    "crypto", "bitcoin", "act fast",
-    "₹", "rs",
-    "லாட்டரி", "பரிசு",
-    "लॉटरी", "इनाम"
+HIGH_RISK_KEYWORDS = [
+    "lottery", "winner", "prize", "won", "claim",
+    "urgent", "act fast", "limited time", "final warning",
+    "click here", "verify now",
+    "invest", "investment", "returns", "profit", "double",
+    "crypto", "bitcoin", "trading",
+    "free money", "guaranteed",
+    "account blocked", "account suspended",
+
+    "லாட்டரி", "பரிசு", "வெற்றி",
+    "உடனே", "அவசரம்", "முதலீடு", "லாபம்",
+    "கணக்கு முடக்கம்",
+
+    "लॉटरी", "इनाम", "जीत",
+    "तुरंत", "निवेश", "लाभ",
+    "खाता बंद"
+]
+
+MEDIUM_RISK_KEYWORDS = [
+    "offer", "opportunity", "promotion",
+    "selected", "shortlisted",
+    "package", "delivery", "courier",
+    "subscription", "renewal",
+
+    "சலுகை", "வாய்ப்பு", "டெலிவரி", "பார்சல்",
+
+    "ऑफर", "अवसर", "डिलीवरी", "पार्सल"
+]
+
+MONEY_INDICATORS = [
+    "₹", "rs", "rupees", "usd",
+    "ரூபாய்", "रुपये"
+]
+
+LINK_INDICATORS = [
+    "http", "https", ".com", ".in", ".xyz", ".link", ".win", "bit.ly"
+]
+
+OTP_WORDS = ["otp", "one time password", "ஓடிபி", "ओटीपी"]
+
+OTP_SAFE_PHRASES = [
+    "do not share", "never share", "do not disclose",
+    "for your security", "do not reply",
+    "பகிர வேண்டாம்", "பகிராதீர்கள்",
+    "साझा न करें", "मत साझा करें"
+]
+
+OTP_DANGEROUS_ACTIONS = [
+    "share otp", "send otp", "confirm otp",
+    "enter otp", "submit otp", "reply otp",
+    "verify otp", "otp now", "otp immediately",
+    "ओटीपी भेजें", "otp அனுப்பு"
 ]
 
 def rule_score(msg):
-    return sum(1 for w in SCAM_WORDS if w.lower() in msg.lower())
+    msg_l = msg.lower()
+    score = 0
+
+    for w in HIGH_RISK_KEYWORDS:
+        if w in msg_l:
+            score += 2
+
+    for w in MEDIUM_RISK_KEYWORDS:
+        if w in msg_l:
+            score += 1
+
+    for w in MONEY_INDICATORS:
+        if w in msg_l:
+            score += 1
+
+    for w in LINK_INDICATORS:
+        if w in msg_l:
+            score += 1
+
+    has_otp = any(w in msg_l for w in OTP_WORDS)
+
+    if has_otp:
+        if any(p in msg_l for p in OTP_SAFE_PHRASES):
+            score -= 2
+        if any(p in msg_l for p in OTP_DANGEROUS_ACTIONS):
+            score += 3
+        if score < 2:
+            score += 1
+
+    return max(score, 0)
 
 # ==================================================
 # ADMIN DASHBOARD
@@ -135,10 +201,10 @@ def rule_score(msg):
 @app.route("/admin/dashboard")
 def admin_dashboard():
     return {
-        "confirmed_scams": len(get_confirmed()),
-        "pending_reports": len(get_pending()),
-        "recent_confirmed": get_confirmed()[-5:],
-        "recent_pending": get_pending()[-5:]
+        "confirmed_scams": len(fetch_messages("confirmed_scams")),
+        "pending_reports": len(fetch_messages("pending_scams")),
+        "recent_confirmed": fetch_messages("confirmed_scams")[-5:],
+        "recent_pending": fetch_messages("pending_scams")[-5:]
     }
 
 # ==================================================
@@ -156,67 +222,52 @@ def whatsapp_reply():
     resp = MessagingResponse()
     reply = resp.message()
 
-    # ---------------- EXIT ----------------
+    # EXIT
     if incoming.upper() == "EXIT":
-        if lang == "TA":
-            reply.body(
-                "✅ அறிவிப்புகள் நிறுத்தப்பட்டன.\n\n"
-                "Alerts stopped safely."
-            )
-        elif lang == "HI":
-            reply.body(
-                "✅ अलर्ट बंद कर दिए गए हैं।\n\n"
-                "Alerts stopped safely."
-            )
-        else:
-            reply.body("Alerts stopped safely.")
+        reply.body("Alerts stopped safely.")
         return str(resp)
 
-    # ---------------- REPORT ----------------
+    # REPORT
     if incoming.upper() == "REPORT":
         if user in last_message_cache:
             msg, label = last_message_cache[user]
             if label in ["FRAUD", "CAUTION"]:
                 save_pending(msg, user)
-                reply.body(
-                    "⚠️ Report received.\n"
-                    "We monitor similar patterns over time."
-                )
+                reply.body("Report received. We monitor similar patterns over time.")
             else:
-                reply.body(
-                    "ℹ️ Report noted.\n"
-                    "No immediate risk detected."
-                )
+                reply.body("Report noted. No immediate risk detected.")
         else:
             reply.body("No message to report.")
         return str(resp)
 
-    # ---------------- DETECTION ----------------
+    # DETECTION
     r_score = rule_score(incoming)
 
-    confirmed_sim = similarity_score(incoming, get_confirmed())
-    pending_sim = similarity_score(incoming, get_pending())
+    confirmed = fetch_messages("confirmed_scams")
+    pending = fetch_messages("pending_scams")
 
-    # learning logic
+    confirmed_sim = similarity_score(incoming, confirmed)
+    pending_sim = similarity_score(incoming, pending)
+
     if pending_sim >= SIM_HIGH:
         promote_to_confirmed(incoming)
 
-    pending_count = sum(
-        1 for p in get_pending()
+    repeat_count = sum(
+        1 for p in pending
         if similarity_score(incoming, [p]) >= SIM_HIGH
     )
 
-    if r_score >= 3 or confirmed_sim >= SIM_HIGH or pending_count >= LEARN_THRESHOLD:
+    if r_score >= 6 or confirmed_sim >= SIM_HIGH or repeat_count >= LEARN_THRESHOLD:
         label = "FRAUD"
-    elif r_score >= 2 or pending_sim >= SIM_MED:
+    elif r_score >= 4 or pending_sim >= SIM_MED:
         label = "CAUTION"
     else:
         label = "GENUINE"
 
     last_message_cache[user] = (incoming, label)
 
-    # ---------------- RESPONSE ----------------
-    def bilingual(ta, en, hi=None):
+    # RESPONSE
+    def respond(ta, en, hi):
         if lang == "TA":
             return f"{ta}\n\n{en}"
         if lang == "HI":
@@ -224,19 +275,19 @@ def whatsapp_reply():
         return en
 
     if label == "FRAUD":
-        reply.body(bilingual(
+        reply.body(respond(
             "🔴 மோசடி எச்சரிக்கை!\nஇந்த செய்தி ஆபத்தானது.",
             "🔴 FRAUD ALERT\nDo NOT share details or click links.",
             "🔴 धोखाधड़ी चेतावनी!\nयह संदेश खतरनाक है।"
         ))
     elif label == "CAUTION":
-        reply.body(bilingual(
+        reply.body(respond(
             "🟠 எச்சரிக்கை\nஇந்த செய்தியை முழுமையாக சரிபார்க்க முடியவில்லை.",
             "🟠 CAUTION\nWe cannot fully verify this message.",
             "🟠 सावधानी\nइस संदेश की पुष्टि नहीं हो सकी।"
         ))
     else:
-        reply.body(bilingual(
+        reply.body(respond(
             "🟢 இந்த செய்தி பாதுகாப்பாக இருக்கலாம்.",
             "🟢 LIKELY GENUINE\nNo strong scam indicators detected.",
             "🟢 यह संदेश सुरक्षित लगता है।"
