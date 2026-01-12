@@ -50,7 +50,7 @@ def detect_language(text):
     return "EN"
 
 # ==================================================
-# BANK IMPERSONATION & SENSITIVE DATA RULE
+# BANK IMPERSONATION (TEXT-ONLY) RULE
 # ==================================================
 
 BANK_KEYWORDS = [
@@ -61,13 +61,19 @@ BANK_KEYWORDS = [
 ]
 
 SENSITIVE_DATA_REQUESTS = [
-    "send your bank details", "share bank details",
-    "provide account details", "verify your account",
-    "renewal of service", "send card details",
+    "send your bank details",
+    "share bank details",
+    "provide account details",
+    "verify your account",
+    "renewal of service",
+    "send card details",
     "send account number",
 
-    "बैंक विवरण भेजें", "खाता विवरण साझा करें",
-    "வங்கி விவரங்களை அனுப்பவும்", "கணக்கு விவரங்களை பகிரவும்"
+    "बैंक विवरण भेजें",
+    "खाता विवरण साझा करें",
+
+    "வங்கி விவரங்களை அனுப்பவும்",
+    "கணக்கு விவரங்களை பகிரவும்"
 ]
 
 URGENCY_PHRASES = [
@@ -83,12 +89,14 @@ def is_text_only_bank_scam(text):
     t = text.lower()
     return (
         any(b in t for b in BANK_KEYWORDS)
-        and (any(s in t for s in SENSITIVE_DATA_REQUESTS)
-             or any(u in t for u in URGENCY_PHRASES))
+        and (
+            any(s in t for s in SENSITIVE_DATA_REQUESTS)
+            or any(u in t for u in URGENCY_PHRASES)
+        )
     )
 
 # ==================================================
-# UNVERIFIED FINANCIAL HELP REQUEST
+# UNVERIFIED FINANCIAL HELP (CAUTION)
 # ==================================================
 
 FINANCIAL_HELP_KEYWORDS = [
@@ -132,6 +140,7 @@ def save_pending(msg, reporter):
 def promote_if_trusted(msg):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+
     cur.execute("""
         SELECT COUNT(DISTINCT reporter)
         FROM pending_scams WHERE message=?
@@ -143,8 +152,12 @@ def promote_if_trusted(msg):
             "INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",
             (msg,)
         )
-        cur.execute("DELETE FROM pending_scams WHERE message=?", (msg,))
+        cur.execute(
+            "DELETE FROM pending_scams WHERE message=?",
+            (msg,)
+        )
         conn.commit()
+
     conn.close()
 
 def similarity(msg, corpus):
@@ -157,7 +170,7 @@ def similarity(msg, corpus):
 # WHATSAPP WEBHOOK
 # ==================================================
 
-last_seen = {}
+last_seen = {}   # user -> (previous_message, label)
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
@@ -168,8 +181,33 @@ def whatsapp():
     resp = MessagingResponse()
     reply = resp.message()
 
+    # -------- EXIT --------
     if incoming.upper() == "EXIT":
         reply.body("Alerts stopped safely.")
+        return str(resp)
+
+    # -------- REPORT (FIXED ORDER) --------
+    if incoming.upper() == "REPORT":
+        if user in last_seen:
+            msg, lbl = last_seen[user]
+
+            if lbl != "GENUINE":
+                save_pending(msg, user)
+                promote_if_trusted(msg)
+
+                reply.body(
+                    "✅ Report received.\n\n"
+                    "You can also report this officially:\n\n"
+                    "🇮🇳 Cybercrime Portal:\nhttps://cybercrime.gov.in\n\n"
+                    "🏦 RBI Banking Complaints:\nhttps://cms.rbi.org.in\n\n"
+                    "📱 Telecom / SMS Spam (TRAI):\nhttps://sancharsaathi.gov.in\n\n"
+                    "Your report helps protect others."
+                )
+            else:
+                reply.body("Thank you. This message shows no immediate scam indicators.")
+        else:
+            reply.body("No previous message found to report.")
+
         return str(resp)
 
     # -------- CORE DECISION --------
@@ -185,31 +223,8 @@ def whatsapp():
         else:
             label = "GENUINE"
 
+    # Store ONLY non-command messages
     last_seen[user] = (incoming, label)
-
-    # -------- REPORT HANDLING --------
-   if incoming.upper() == "REPORT":
-    if user in last_seen:
-        msg, lbl = last_seen[user]
-
-        if lbl != "GENUINE":
-            save_pending(msg, user)
-            promote_if_trusted(msg)
-
-            reply.body(
-                "✅ Report received.\n\n"
-                "You can also report this officially:\n\n"
-                "🇮🇳 Cybercrime Portal:\nhttps://cybercrime.gov.in\n\n"
-                "🏦 RBI Banking Complaints:\nhttps://cms.rbi.org.in\n\n"
-                "📱 Spam / SMS (TRAI):\nhttps://sancharsaathi.gov.in\n\n"
-                "Your report helps protect others."
-            )
-        else:
-            reply.body("Thank you. This message shows no immediate scam indicators.")
-    else:
-        reply.body("No recent message available to report.")
-
-    return str(resp)
 
     # -------- MULTILINGUAL RESPONSE --------
     def respond(ta, en, hi):
@@ -221,9 +236,9 @@ def whatsapp():
 
     if label == "FRAUD":
         reply.body(respond(
-            "🔴 மோசடி எச்சரிக்கை!\nவங்கிகள் எப்போதும் விவரங்களை கேட்காது.",
+            "🔴 மோசடி எச்சரிக்கை!\nவங்கிகள் எப்போதும் செய்திகளில் விவரங்களை கேட்காது.",
             "🔴 FRAUD ALERT\nBanks never ask for details via messages.",
-            "🔴 धोखाधड़ी चेतावनी!\nबैंक कभी विवरण नहीं मांगते।"
+            "🔴 धोखाधड़ी चेतावनी!\nबैंक कभी संदेशों में विवरण नहीं मांगते।"
         ))
     elif label == "CAUTION":
         reply.body(respond(
@@ -241,7 +256,7 @@ def whatsapp():
     return str(resp)
 
 # ==================================================
-# ADMIN VIEW
+# ADMIN DASHBOARD
 # ==================================================
 
 @app.route("/admin/dashboard")
