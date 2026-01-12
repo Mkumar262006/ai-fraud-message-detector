@@ -2,13 +2,15 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 import sqlite3
 import os
+import re
+from urllib.parse import urlparse
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
 
 # ==================================================
-# DATABASE SETUP
+# DATABASE
 # ==================================================
 
 DB_PATH = "scam_system.db"
@@ -105,56 +107,112 @@ def similarity_score(msg, corpus):
     return max(scores[0])
 
 # ==================================================
-# KEYWORDS + OTP CONTEXT LOGIC
+# KEYWORDS (EXPANDED)
 # ==================================================
 
 HIGH_RISK_KEYWORDS = [
-    "lottery", "winner", "prize", "won", "claim",
-    "urgent", "act fast", "limited time", "final warning",
-    "click here", "verify now",
-    "invest", "investment", "returns", "profit", "double",
-    "crypto", "bitcoin", "trading",
-    "free money", "guaranteed",
+    # English
+    "lottery", "winner", "won", "prize", "claim",
+    "urgent", "immediately", "act fast", "limited time",
+    "final warning", "last chance",
+    "verify now", "update kyc", "kyc pending",
     "account blocked", "account suspended",
+    "unauthorized transaction",
+    "refund approved", "cashback approved",
+    "free money", "guaranteed",
+    "investment", "invest now", "high returns",
+    "double your money", "crypto", "bitcoin",
+    "click here", "tap here",
 
+    # Tamil
     "லாட்டரி", "பரிசு", "வெற்றி",
-    "உடனே", "அவசரம்", "முதலீடு", "லாபம்",
+    "உடனே", "அவசரம்", "இப்போது",
+    "இறுதி எச்சரிக்கை",
+    "முதலீடு", "லாபம்",
     "கணக்கு முடக்கம்",
+    "kyc நிலுவையில்",
 
+    # Hindi
     "लॉटरी", "इनाम", "जीत",
-    "तुरंत", "निवेश", "लाभ",
-    "खाता बंद"
+    "तुरंत", "अभी", "अंतिम चेतावनी",
+    "निवेश", "लाभ",
+    "खाता बंद",
+    "केवाईसी लंबित"
 ]
 
 MEDIUM_RISK_KEYWORDS = [
-    "offer", "opportunity", "promotion",
-    "selected", "shortlisted",
-    "package", "delivery", "courier",
+    "offer", "promotion", "selected", "shortlisted",
+    "delivery", "package", "courier",
     "subscription", "renewal",
+    "job offer", "work from home",
+    "loan approved",
 
-    "சலுகை", "வாய்ப்பு", "டெலிவரி", "பார்சல்",
+    "சலுகை", "டெலிவரி", "பார்சல்", "வேலை வாய்ப்பு",
 
-    "ऑफर", "अवसर", "डिलीवरी", "पार्सल"
+    "ऑफर", "डिलीवरी", "पार्सल", "नौकरी"
 ]
 
-MONEY_INDICATORS = ["₹", "rs", "rupees", "usd", "ரூபாய்", "रुपये"]
-LINK_INDICATORS = ["http", "https", ".com", ".in", ".xyz", ".link", ".win", "bit.ly"]
+MONEY_INDICATORS = ["₹", "rs", "rupees", "inr", "रुपये", "ரூபாய்", "$"]
+LINK_INDICATORS = [
+    "http", "https", ".com", ".in", ".xyz", ".top",
+    ".live", ".site", "bit.ly", "tinyurl", "t.co"
+]
+
+# ==================================================
+# OTP CONTEXT LOGIC
+# ==================================================
 
 OTP_WORDS = ["otp", "one time password", "ஓடிபி", "ओटीपी"]
 
 OTP_SAFE_PHRASES = [
     "do not share", "never share", "do not disclose",
-    "for your security", "do not reply",
+    "for your security",
     "பகிர வேண்டாம்", "பகிராதீர்கள்",
     "साझा न करें", "मत साझा करें"
 ]
 
 OTP_DANGEROUS_ACTIONS = [
     "share otp", "send otp", "confirm otp",
-    "enter otp", "submit otp", "reply otp",
+    "enter otp", "submit otp",
     "verify otp", "otp now", "otp immediately",
-    "ओटीपी भेजें", "otp அனுப்பு"
+    "ओटीपी भेजें", "otp அனுப்பு", "otp பகிர"
 ]
+
+# ==================================================
+# BANK DOMAIN VERIFICATION
+# ==================================================
+
+OFFICIAL_BANK_DOMAINS = {
+    "sbi": ["sbi.co.in", "onlinesbi.sbi"],
+    "hdfc": ["hdfcbank.com"],
+    "icici": ["icicibank.com"],
+    "axis": ["axisbank.com"]
+}
+
+def extract_domains(text):
+    urls = re.findall(r'https?://[^\s]+', text)
+    domains = []
+    for url in urls:
+        parsed = urlparse(url)
+        domains.append(parsed.netloc.lower())
+    return domains
+
+def is_bank_phishing(text):
+    text_l = text.lower()
+    domains = extract_domains(text)
+    if not domains:
+        return False
+
+    for bank, allowed in OFFICIAL_BANK_DOMAINS.items():
+        if bank in text_l:
+            for d in domains:
+                if not any(a in d for a in allowed):
+                    return True
+    return False
+
+# ==================================================
+# RULE SCORE
+# ==================================================
 
 def rule_score(msg):
     msg_l = msg.lower()
@@ -168,11 +226,7 @@ def rule_score(msg):
         if w in msg_l:
             score += 1
 
-    for w in MONEY_INDICATORS:
-        if w in msg_l:
-            score += 1
-
-    for w in LINK_INDICATORS:
+    for w in MONEY_INDICATORS + LINK_INDICATORS:
         if w in msg_l:
             score += 1
 
@@ -216,12 +270,10 @@ def whatsapp_reply():
     resp = MessagingResponse()
     reply = resp.message()
 
-    # EXIT
     if incoming.upper() == "EXIT":
         reply.body("Alerts stopped safely.")
         return str(resp)
 
-    # REPORT
     if incoming.upper() == "REPORT":
         if user in last_message_cache:
             msg, label = last_message_cache[user]
@@ -234,29 +286,27 @@ def whatsapp_reply():
             reply.body("No message to report.")
         return str(resp)
 
-    # DETECTION
     r_score = rule_score(incoming)
-
     confirmed = fetch_messages("confirmed_scams")
     pending = fetch_messages("pending_scams")
 
     confirmed_sim = similarity_score(incoming, confirmed)
     pending_sim = similarity_score(incoming, pending)
 
-    if pending_sim >= SIM_HIGH:
-        promote_to_confirmed(incoming)
-
-    repeat_count = sum(
-        1 for p in pending
-        if similarity_score(incoming, [p]) >= SIM_HIGH
-    )
-
-    if r_score >= 6 or confirmed_sim >= SIM_HIGH or repeat_count >= LEARN_THRESHOLD:
+    if is_bank_phishing(incoming):
         label = "FRAUD"
-    elif r_score >= 4 or pending_sim >= SIM_MED:
-        label = "CAUTION"
     else:
-        label = "GENUINE"
+        repeat_count = sum(
+            1 for p in pending
+            if similarity_score(incoming, [p]) >= SIM_HIGH
+        )
+
+        if r_score >= 6 or confirmed_sim >= SIM_HIGH or repeat_count >= LEARN_THRESHOLD:
+            label = "FRAUD"
+        elif r_score >= 4 or pending_sim >= SIM_MED:
+            label = "CAUTION"
+        else:
+            label = "GENUINE"
 
     last_message_cache[user] = (incoming, label)
 
@@ -269,13 +319,13 @@ def whatsapp_reply():
 
     if label == "FRAUD":
         reply.body(respond(
-            "🔴 மோசடி எச்சரிக்கை!\nஇந்த செய்தி ஆபத்தானது.",
-            "🔴 FRAUD ALERT\nDo NOT share details or click links.",
-            "🔴 धोखाधड़ी चेतावनी!\nयह संदेश खतरनाक है।"
+            "🔴 மோசடி எச்சரிக்கை!\nஇந்த செய்தி போலியானது.",
+            "🔴 FRAUD ALERT\nThis message is a scam. Do NOT click links.",
+            "🔴 धोखाधड़ी चेतावनी!\nयह संदेश फर्जी है।"
         ))
     elif label == "CAUTION":
         reply.body(respond(
-            "🟠 எச்சரிக்கை\nஇந்த செய்தியை முழுமையாக சரிபார்க்க முடியவில்லை.",
+            "🟠 எச்சரிக்கை\nஇந்த செய்தியை சரிபார்க்கவும்.",
             "🟠 CAUTION\nWe cannot fully verify this message.",
             "🟠 सावधानी\nइस संदेश की पुष्टि नहीं हो सकी।"
         ))
