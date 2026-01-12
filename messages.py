@@ -8,7 +8,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 app = Flask(__name__)
 
 # ==================================================
-# DATABASE
+# DATABASE SETUP
 # ==================================================
 
 DB_PATH = "scam_system.db"
@@ -137,14 +137,8 @@ MEDIUM_RISK_KEYWORDS = [
     "ऑफर", "अवसर", "डिलीवरी", "पार्सल"
 ]
 
-MONEY_INDICATORS = [
-    "₹", "rs", "rupees", "usd",
-    "ரூபாய்", "रुपये"
-]
-
-LINK_INDICATORS = [
-    "http", "https", ".com", ".in", ".xyz", ".link", ".win", "bit.ly"
-]
+MONEY_INDICATORS = ["₹", "rs", "rupees", "usd", "ரூபாய்", "रुपये"]
+LINK_INDICATORS = ["http", "https", ".com", ".in", ".xyz", ".link", ".win", "bit.ly"]
 
 OTP_WORDS = ["otp", "one time password", "ஓடிபி", "ओटीपी"]
 
@@ -266,7 +260,6 @@ def whatsapp_reply():
 
     last_message_cache[user] = (incoming, label)
 
-    # RESPONSE
     def respond(ta, en, hi):
         if lang == "TA":
             return f"{ta}\n\n{en}"
