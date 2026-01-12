@@ -188,26 +188,28 @@ def whatsapp():
     last_seen[user] = (incoming, label)
 
     # -------- REPORT HANDLING --------
-    if incoming.upper() == "REPORT":
-        if user in last_seen:
-            msg, lbl = last_seen[user]
-            if lbl != "GENUINE":
-                save_pending(msg, user)
-                promote_if_trusted(msg)
+   if incoming.upper() == "REPORT":
+    if user in last_seen:
+        msg, lbl = last_seen[user]
 
-                reply.body(
-                    "✅ Report received.\n\n"
-                    "You can also report this officially:\n\n"
-                    "🇮🇳 Cybercrime Portal:\nhttps://cybercrime.gov.in\n\n"
-                    "🏦 RBI Banking Complaints:\nhttps://cms.rbi.org.in\n\n"
-                    "📱 Spam / SMS (TRAI):\nhttps://sancharsaathi.gov.in\n\n"
-                    "Your report helps protect others."
-                )
-            else:
-                reply.body("Thank you. This message shows no immediate scam indicators.")
+        if lbl != "GENUINE":
+            save_pending(msg, user)
+            promote_if_trusted(msg)
+
+            reply.body(
+                "✅ Report received.\n\n"
+                "You can also report this officially:\n\n"
+                "🇮🇳 Cybercrime Portal:\nhttps://cybercrime.gov.in\n\n"
+                "🏦 RBI Banking Complaints:\nhttps://cms.rbi.org.in\n\n"
+                "📱 Spam / SMS (TRAI):\nhttps://sancharsaathi.gov.in\n\n"
+                "Your report helps protect others."
+            )
         else:
-            reply.body("No recent message available to report.")
-        return str(resp)
+            reply.body("Thank you. This message shows no immediate scam indicators.")
+    else:
+        reply.body("No recent message available to report.")
+
+    return str(resp)
 
     # -------- MULTILINGUAL RESPONSE --------
     def respond(ta, en, hi):
