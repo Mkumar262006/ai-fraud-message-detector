@@ -117,3 +117,50 @@ This connects AI detection with **real-world action**.
 
 ## 🧑‍💻 Admin Dashboard
 Endpoint:
+
+Admin can view:
+- Number of pending scam reports
+- Number of confirmed scams
+
+---
+
+## 🛠️ Tech Stack
+- Python
+- Flask
+- Twilio WhatsApp API
+- SQLite
+- Scikit-learn (NLP)
+- Railway (Deployment)
+- GitHub (Version Control)
+
+---
+
+## 🚀 Deployment
+The application is deployed on the cloud and connected to WhatsApp using Twilio.
+
+---
+
+## 🏷️ Domain & Category
+- **Primary Domain**: Social Good
+- **Secondary Domain**: Applied Engineering
+- **Use Case**: AI for Cybersecurity & Digital Safety
+
+---
+
+## 🧒 Simple Explanation
+> “This project helps people avoid getting cheated on WhatsApp by warning them before they lose money.”
+
+---
+
+## 📌 Impact
+- Protects users from financial fraud
+- Works for non-technical and rural users
+- Encourages responsible reporting
+- Supports Digital India and cyber safety initiatives
+
+---
+
+## 📎 Conclusion
+This project demonstrates how **AI can be used responsibly for social good** by combining technology, ethics, and real-world impact.  
+It is designed to be **accessible, explainable, and practical** for everyday users.
+
