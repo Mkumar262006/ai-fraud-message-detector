@@ -427,26 +427,6 @@ if incoming.upper() == "REPORT":
     reply.body(f"⚠ Risk: {label}\nScore: {score}\n" + "\n".join(reasons))
     return str(resp)
 
-
-    # ===== AI ASSISTANT =====
-    if not looks_like_scam(incoming):
-
-        ai_response = ai_chat(user, incoming, lang)
-        reply.body(ai_response)
-        return str(resp)
-
-    # ===== SCAM DETECTION =====
-    score,reasons = calculate_harm(incoming)
-
-    if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
-        score = max(score,8)
-
-    label = classify(score)
-    last_seen[user] = (incoming,label)
-
-    reply.body(scam_reply(lang, score, label, reasons))
-    return str(resp)
-
 # ================= ADMIN LOGIN =================
 @app.route("/admin/login", methods=["GET","POST"])
 def admin_login():
