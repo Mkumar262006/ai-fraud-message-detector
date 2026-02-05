@@ -8,7 +8,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ================= OPENAI =================
-client = OpenAI(api_key="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")
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
 
 # ================= APP =================
 app = Flask(__name__)
@@ -119,6 +120,18 @@ SOCIAL_ENGINEERING = [
 PHONE_PATTERN = r"\b\d{9,13}\b"
 UPI_PATTERN = r"[a-zA-Z0-9.\-_]+@[a-zA-Z]+"
 URL_PATTERN = r"(https?://|www\.)"
+
+SCAM_WORDS = (
+    EMOTIONAL_WORDS
+    + FINANCIAL_WORDS
+    + BANK_WORDS
+    + SENSITIVE_WORDS
+    + URGENCY_WORDS
+    + GOVT_WORDS
+    + CHARITY_WORDS
+    + SOCIAL_ENGINEERING
+)
+
 
 # ================= INTENT DETECTION =================
 def looks_like_scam(text):
@@ -429,10 +442,11 @@ def export_csv():
         headers={"Content-Disposition":"attachment;filename=scams.csv"})
 
 # ================= SERVER =================
-socketio.run(
-    app,
-    host="0.0.0.0",
-    port=int(os.environ.get("PORT", 8080)),
-    allow_unsafe_werkzeug=True
-)
+if __name__ == "__main__":
+    socketio.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
+        allow_unsafe_werkzeug=True
+    )
 
