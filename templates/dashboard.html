@@ -1,67 +1,10 @@
-<!DOCTYPE html>
-<html>
-<head>
+<meta http-equiv="refresh" content="10">
 
-<title>Scam Intelligence Dashboard</title>
+<h1>Admin Dashboard</h1>
+<p>Pending: {{ pending }}</p>
+<p>Confirmed: {{ confirmed }}</p>
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-</head>
-
-<body class="bg-gray-900 text-white">
-
-<div class="p-8">
-
-<h1 class="text-3xl font-bold mb-8">🚨 Scam Intelligence Dashboard</h1>
-
-<!-- Cards -->
-<div class="grid grid-cols-2 gap-6 mb-10">
-
-<div class="bg-red-600 p-6 rounded-2xl shadow-lg">
-<h2 class="text-xl">Pending Scams</h2>
-<p class="text-4xl font-bold">{{ pending }}</p>
-</div>
-
-<div class="bg-green-600 p-6 rounded-2xl shadow-lg">
-<h2 class="text-xl">Confirmed Scams</h2>
-<p class="text-4xl font-bold">{{ confirmed }}</p>
-</div>
-
-</div>
-
-<!-- Chart -->
-<div class="bg-gray-800 p-6 rounded-2xl shadow-lg">
-<canvas id="scamChart"></canvas>
-</div>
-
-<br>
-
-<div class="space-x-4">
-<a href="/admin/pending" class="bg-yellow-500 px-6 py-2 rounded-xl">
-Pending Reports
-</a>
-
-<a href="/admin/confirmed" class="bg-blue-500 px-6 py-2 rounded-xl">
-Confirmed Scams
-</a>
-</div>
-
-</div>
-
-<script>
-const ctx = document.getElementById('scamChart');
-
-new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Pending', 'Confirmed'],
-        datasets: [{
-            data: [{{ pending }}, {{ confirmed }}]
-        }]
-    }
-});
-</script>
-
-</body>
-</html>
+<a href="/admin/pending">Pending</a>
+<a href="/admin/confirmed">Confirmed</a>
+<a href="/admin/export">Export CSV</a>
+<a href="/admin/logout">Logout</a>
