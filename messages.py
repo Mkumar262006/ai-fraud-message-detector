@@ -1,15 +1,16 @@
 from flask import Flask, request, render_template, redirect, url_for, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
+from flask_socketio import SocketIO
 from twilio.twiml.messaging_response import MessagingResponse
-import sqlite3, os, re, csv
+import sqlite3, os, re, csv, datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
 app.secret_key = "adminsecret"
+socketio = SocketIO(app)
 
 DB_PATH = "scam_system.db"
-
 # ================= LOGIN SYSTEM =================
 
 login_manager = LoginManager()
@@ -190,8 +191,7 @@ def fetch(table):
     return rows
 
 def similarity(msg, corpus):
-    if not corpus:
-        return 0
+    if not corpus: return 0
     tfidf = TfidfVectorizer().fit_transform(corpus + [msg])
     return max(cosine_similarity(tfidf[-1], tfidf[:-1])[0])
 
@@ -199,22 +199,26 @@ def save_pending(msg, reporter):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("INSERT INTO pending_scams(message,reporter) VALUES (?,?)",(msg,reporter))
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
 
 def promote_if_trusted(msg):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("SELECT COUNT(DISTINCT reporter) FROM pending_scams WHERE message=?",(msg,))
     count = cur.fetchone()[0]
-
     if count >= MIN_REPORTERS:
         cur.execute("INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",(msg,))
         cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
         conn.commit()
-
     conn.close()
+
+def broadcast_stats():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM pending_scams"); pending = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM confirmed_scams"); confirmed = cur.fetchone()[0]
+    conn.close()
+    socketio.emit("stats_update", {"pending": pending, "confirmed": confirmed})
 
 # ================= WHATSAPP BOT =================
 last_seen = {}
@@ -262,15 +266,12 @@ def whatsapp():
     return str(resp)
 
 # ================= ADMIN LOGIN =================
-
 @app.route("/admin/login", methods=["GET","POST"])
 def admin_login():
-
     if request.method=="POST":
         if request.form["username"]=="admin" and request.form["password"]=="1234":
             login_user(Admin())
             return redirect("/admin")
-
     return render_template("login.html")
 
 @app.route("/admin/logout")
@@ -279,93 +280,117 @@ def admin_logout():
     logout_user()
     return redirect("/admin/login")
 
+# ================= ANALYTICS HELPERS =================
+def category_stats():
+    rows = fetch("confirmed_scams")
+    cats = {"bank":0,"emotional":0,"upi":0,"links":0}
+    for m in rows:
+        t = m.lower()
+        if any(w in t for w in BANK): cats["bank"]+=1
+        if any(w in t for w in EMOTIONAL): cats["emotional"]+=1
+        if re.search(UPI_PATTERN, t): cats["upi"]+=1
+        if re.search(URL_PATTERN, t): cats["links"]+=1
+    return cats
+
+def daily_trend():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT DATE(created_at), COUNT(*) 
+        FROM confirmed_scams 
+        GROUP BY DATE(created_at)
+        ORDER BY DATE(created_at)
+    """)
+    data = cur.fetchall()
+    conn.close()
+    labels = [d[0] for d in data]
+    values = [d[1] for d in data]
+    return labels, values
+
 
 # ================= ADMIN DASHBOARD =================
 
 @app.route("/admin")
 @login_required
 def admin_home():
-
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
-    cur.execute("SELECT COUNT(*) FROM pending_scams")
-    pending = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM confirmed_scams")
-    confirmed = cur.fetchone()[0]
-
+    cur.execute("SELECT COUNT(*) FROM pending_scams"); pending = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM confirmed_scams"); confirmed = cur.fetchone()[0]
     conn.close()
 
-    return render_template("dashboard.html", pending=pending, confirmed=confirmed)
+    cats = category_stats()
+    trend_labels, trend_values = daily_trend()
+
+    # simple static demo points for heatmap
+    heat_points = [
+        {"lat":13.0827,"lng":80.2707}, # Chennai
+        {"lat":28.7041,"lng":77.1025}, # Delhi
+        {"lat":19.0760,"lng":72.8777}  # Mumbai
+    ]
+
+    return render_template(
+        "dashboard.html",
+        pending=pending, confirmed=confirmed,
+        cats=cats, trend_labels=trend_labels, trend_values=trend_values,
+        heat_points=heat_points
+    )
 
 @app.route("/admin/pending")
 @login_required
 def admin_pending():
-
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("""
         SELECT message, COUNT(DISTINCT reporter)
         FROM pending_scams
         GROUP BY message
     """)
-
     data = cur.fetchall()
     conn.close()
-
     return render_template("pending.html", data=data)
 
 @app.route("/admin/confirmed")
 @login_required
 def admin_confirmed():
-
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT message FROM confirmed_scams")
     data = cur.fetchall()
     conn.close()
-
     return render_template("confirmed.html", data=data)
 
 @app.route("/admin/approve")
 @login_required
 def approve():
     msg = request.args.get("msg")
-
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("INSERT OR IGNORE INTO confirmed_scams VALUES(NULL,?)",(msg,))
+    cur.execute("INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",(msg,))
     cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
-    conn.commit()
-    conn.close()
-
+    conn.commit(); conn.close()
+    broadcast_stats()
     return redirect("/admin/pending")
 
 @app.route("/admin/delete")
 @login_required
 def delete():
     msg = request.args.get("msg")
-
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
-    conn.commit()
-    conn.close()
-
+    conn.commit(); conn.close()
+    broadcast_stats()
     return redirect("/admin/pending")
-
-# ================= EXPORT CSV =================
 
 @app.route("/admin/export")
 @login_required
 def export_csv():
-
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("SELECT message FROM confirmed_scams")
     rows = cur.fetchall()
+    conn.close()
 
     def generate():
         yield "Message\n"
