@@ -1,81 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<title>Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
-<body class="bg-gray-900 text-white p-8">
+<body class="bg-gradient-to-br from-black via-gray-900 to-black text-white p-8">
 
-<h1 class="text-3xl mb-6">🚨 Scam SOC Dashboard</h1>
+<h1 class="text-4xl font-bold mb-10">
+🛡 Scam Intelligence Command Center
+</h1>
 
-<div class="grid md:grid-cols-2 gap-6 mb-6">
-  <div class="bg-red-600 p-6 rounded-2xl shadow-xl transition hover:scale-105">
-    Pending <h2 id="pending" class="text-4xl">{{ pending }}</h2>
-  </div>
+<div class="grid md:grid-cols-2 gap-8 mb-10">
 
-  <div class="bg-green-600 p-6 rounded-2xl shadow-xl transition hover:scale-105">
-    Confirmed <h2 id="confirmed" class="text-4xl">{{ confirmed }}</h2>
-  </div>
+<!-- Pending Card -->
+<div class="bg-yellow-500/20 backdrop-blur-xl p-8 rounded-2xl shadow-xl border border-yellow-300/20 hover:scale-105 transition">
+
+<h2 class="text-xl mb-3">⚠ Pending Threats</h2>
+<p class="text-4xl font-bold">{{ pending }}</p>
+
 </div>
 
-<!-- Category Chart -->
-<canvas id="catChart"></canvas>
+<!-- Confirmed Card -->
+<div class="bg-red-500/20 backdrop-blur-xl p-8 rounded-2xl shadow-xl border border-red-300/20 hover:scale-105 transition">
 
-<!-- Trend Chart -->
-<canvas id="trendChart" class="mt-8"></canvas>
+<h2 class="text-xl mb-3">🚨 Confirmed Scams</h2>
+<p class="text-4xl font-bold">{{ confirmed }}</p>
 
-<!-- Heatmap -->
-<div id="map" class="mt-8" style="height:400px;"></div>
+</div>
 
-<br>
-<a href="/admin/pending" class="bg-yellow-500 px-4 py-2 rounded">Pending</a>
-<a href="/admin/confirmed" class="bg-blue-500 px-4 py-2 rounded">Confirmed</a>
-<a href="/admin/export" class="bg-purple-500 px-4 py-2 rounded">Export CSV</a>
-<a href="/admin/logout" class="bg-gray-700 px-4 py-2 rounded">Logout</a>
+</div>
+
+<!-- Chart -->
+<div class="bg-white/10 backdrop-blur-xl p-8 rounded-2xl shadow-xl border border-white/10 mb-10">
+
+<h2 class="text-xl mb-6">📊 Threat Comparison</h2>
+<canvas id="statsChart"></canvas>
+
+</div>
+
+<div class="space-x-4">
+<a href="/admin/pending" class="bg-blue-600 px-6 py-3 rounded-xl hover:bg-blue-700">
+Moderate Pending
+</a>
+
+<a href="/admin/confirmed" class="bg-green-600 px-6 py-3 rounded-xl hover:bg-green-700">
+View Confirmed
+</a>
+
+<a href="/admin/logout" class="bg-gray-700 px-6 py-3 rounded-xl hover:bg-gray-800">
+Logout
+</a>
+</div>
 
 <script>
-/* ===== WebSocket Live Update ===== */
-var socket = io();
-socket.on("stats_update", function(d){
-  document.getElementById("pending").innerText = d.pending;
-  document.getElementById("confirmed").innerText = d.confirmed;
-});
-
-/* ===== Category Chart ===== */
-new Chart(document.getElementById("catChart"), {
-  type: "bar",
-  data: {
-    labels: ["Bank","Emotional","UPI","Links"],
-    datasets: [{
-      label: "Confirmed Scam Categories",
-      data: [{{ cats.bank }}, {{ cats.emotional }}, {{ cats.upi }}, {{ cats.links }}]
-    }]
-  }
-});
-
-/* ===== Trend Chart ===== */
-new Chart(document.getElementById("trendChart"), {
-  type: "line",
-  data: {
-    labels: {{ trend_labels|tojson }},
-    datasets: [{
-      label: "Confirmed Scams / Day",
-      data: {{ trend_values|tojson }}
-    }]
-  }
-});
-
-/* ===== Heatmap (simple circles) ===== */
-var map = L.map('map').setView([20.5937, 78.9629], 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-var points = {{ heat_points|tojson }};
-points.forEach(p => {
-  L.circle([p.lat, p.lng], {radius: 50000, color: 'red'}).addTo(map);
+new Chart(document.getElementById('statsChart'), {
+    type: 'bar',
+    data: {
+        labels: ['Pending','Confirmed'],
+        datasets: [{
+            label: 'Threat Stats',
+            data: [{{ pending }}, {{ confirmed }}]
+        }]
+    }
 });
 </script>
 
