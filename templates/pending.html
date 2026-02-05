@@ -1,24 +1,43 @@
-<h2>Pending Scam Reports</h2>
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
 
-<table border="1">
-<tr>
-    <th>Message</th>
-    <th>Reports</th>
-    <th>Actions</th>
+<body class="bg-gray-900 text-white p-8">
+
+<h1 class="text-2xl mb-6">⚠️ Pending Scam Reports</h1>
+
+<input id="search" placeholder="Search scams..."
+class="p-2 rounded text-black mb-6 w-full"/>
+
+<table class="w-full bg-gray-800 rounded-xl overflow-hidden">
+<tr class="bg-gray-700">
+<th class="p-3">Message</th>
+<th>Reports</th>
+<th>Action</th>
 </tr>
 
 {% for msg, count in data %}
-<tr>
-    <td>{{ msg }}</td>
-    <td>{{ count }}</td>
-    <td>
-        <a href="/admin/approve?msg={{ msg }}">Approve</a>
-        |
-        <a href="/admin/delete?msg={{ msg }}">Delete</a>
-    </td>
+<tr class="border-t border-gray-700">
+<td class="p-3">{{ msg }}</td>
+<td class="text-center">{{ count }}</td>
+
+<td class="space-x-2 text-center">
+<a href="/admin/approve?msg={{ msg }}"
+class="bg-green-500 px-4 py-1 rounded">
+Approve
+</a>
+
+<a href="/admin/delete?msg={{ msg }}"
+class="bg-red-500 px-4 py-1 rounded">
+Delete
+</a>
+</td>
 </tr>
 {% endfor %}
 
 </table>
 
-<a href="/admin">Back</a>
+</body>
+</html>
