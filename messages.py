@@ -355,56 +355,56 @@ def whatsapp():
     reply = resp.message()
 
     # REPORT
-   # REPORT
-if incoming.upper() == "REPORT":
+    if incoming.upper() == "REPORT":
 
-    if user in last_seen:
+        if user in last_seen:
 
-        msg, _ = last_seen[user]
+            msg, _ = last_seen[user]
 
-        # Save pending report
-        save_pending(msg, user)
+            # Save pending report
+            save_pending(msg, user)
 
-        # Community learning promotion
-        promote_if_trusted(msg)
+            # Community learning promotion
+            promote_if_trusted(msg)
 
-        # Live dashboard update
-        broadcast_stats()
+            # Live dashboard update
+            broadcast_stats()
 
-        if lang == "TA":
-            reply.body(
-                "✅ புகார் பதிவு செய்யப்பட்டது\n"
-                "🔎 அதிகாரப்பூர்வ புகார்:\n"
-                "https://cybercrime.gov.in"
-            )
+            if lang == "TA":
+                reply.body(
+                    "✅ புகார் பதிவு செய்யப்பட்டது\n"
+                    "🔎 அதிகாரப்பூர்வ புகார்:\n"
+                    "https://cybercrime.gov.in"
+                )
 
-        elif lang == "HI":
-            reply.body(
-                "✅ रिपोर्ट दर्ज हो गई\n"
-                "🔎 आधिकारिक शिकायत:\n"
-                "https://cybercrime.gov.in"
-            )
+            elif lang == "HI":
+                reply.body(
+                    "✅ रिपोर्ट दर्ज हो गई\n"
+                    "🔎 आधिकारिक शिकायत:\n"
+                    "https://cybercrime.gov.in"
+                )
 
-        else:
-            reply.body(
-                "✅ Report recorded successfully\n"
-                "🔎 Official complaint portal:\n"
-                "https://cybercrime.gov.in"
-            )
-
-    else:
-
-        if lang == "TA":
-            reply.body("⚠ முதலில் சந்தேகமான செய்தியை அனுப்பவும்")
-
-        elif lang == "HI":
-            reply.body("⚠ पहले संदिग्ध संदेश भेजें")
+            else:
+                reply.body(
+                    "✅ Report recorded successfully\n"
+                    "🔎 Official complaint portal:\n"
+                    "https://cybercrime.gov.in"
+                )
 
         else:
-            reply.body("⚠ Please send suspicious message first")
 
-    return str(resp)
- # FAQ
+            if lang == "TA":
+                reply.body("⚠ முதலில் சந்தேகமான செய்தியை அனுப்பவும்")
+
+            elif lang == "HI":
+                reply.body("⚠ पहले संदिग्ध संदेश भेजें")
+
+            else:
+                reply.body("⚠ Please send suspicious message first")
+
+        return str(resp)
+
+    # FAQ
     faq = faq_router(incoming, lang)
     if faq:
         reply.body(faq)
@@ -416,16 +416,18 @@ if incoming.upper() == "REPORT":
         return str(resp)
 
     # SCAM DETECTION
-    score,reasons = calculate_harm(incoming)
+    score, reasons = calculate_harm(incoming)
 
     if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
-        score = max(score,8)
+        score = max(score, 8)
 
     label = classify(score)
-    last_seen[user] = (incoming,label)
+    last_seen[user] = (incoming, label)
 
     reply.body(f"⚠ Risk: {label}\nScore: {score}\n" + "\n".join(reasons))
+
     return str(resp)
+
 
 # ================= ADMIN LOGIN =================
 @app.route("/admin/login", methods=["GET","POST"])
