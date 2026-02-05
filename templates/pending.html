@@ -1,52 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Pending Scam Moderation</title>
+<title>Pending Scams</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white p-8">
+<body class="bg-gradient-to-br from-black via-gray-900 to-black text-white p-8">
 
-<h1 class="text-3xl font-bold mb-6">⚠ Pending Scam Intelligence Queue</h1>
-
-<!-- Search -->
-<input id="search" placeholder="Search scam messages..."
-class="w-full p-3 mb-8 rounded-xl text-black shadow-lg"/>
+<h1 class="text-3xl mb-8 font-bold">⚠ Threat Moderation Queue</h1>
 
 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-{% for msg, count in data %}
+{% for msg,count in data %}
 
-<div class="bg-white/10 backdrop-blur-lg p-6 rounded-2xl shadow-xl 
-hover:scale-105 transition duration-300 border border-white/10">
+<div class="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-xl border border-white/10 hover:scale-105 transition">
 
-<!-- Report Count Badge -->
-<div class="flex justify-between items-center mb-3">
+<div class="flex justify-between mb-3">
 
-<span class="bg-yellow-500 text-black px-3 py-1 rounded-full text-sm">
+<span class="bg-yellow-500 px-3 py-1 rounded-full text-black">
 Reports: {{ count }}
 </span>
 
-<span class="bg-orange-600 px-3 py-1 rounded-full text-sm animate-pulse">
+<span class="bg-orange-600 px-3 py-1 rounded-full animate-pulse">
 Under Review
 </span>
 
 </div>
 
-<!-- Message -->
-<p class="text-sm mb-6 break-words">{{ msg }}</p>
+<p class="text-sm break-words mb-5">{{ msg }}</p>
 
-<!-- Buttons -->
 <div class="flex justify-between">
 
 <a href="/admin/approve?msg={{ msg }}"
-class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-xl shadow-md">
-✔ Approve
+class="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700">
+Approve
 </a>
 
 <a href="/admin/delete?msg={{ msg }}"
-class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl shadow-md">
-✖ Delete
+class="bg-red-600 px-4 py-2 rounded-xl hover:bg-red-700">
+Delete
 </a>
 
 </div>
@@ -57,12 +49,8 @@ class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl shadow-md">
 
 </div>
 
-<br><br>
-
-<a href="/admin"
-class="bg-blue-500 px-6 py-3 rounded-xl shadow-xl hover:bg-blue-600">
-⬅ Back Dashboard
-</a>
+<br>
+<a href="/admin" class="text-blue-400">⬅ Back</a>
 
 </body>
 </html>
