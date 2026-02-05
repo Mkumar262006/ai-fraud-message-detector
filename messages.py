@@ -429,5 +429,10 @@ def export_csv():
         headers={"Content-Disposition":"attachment;filename=scams.csv"})
 
 # ================= SERVER =================
-if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+socketio.run(
+    app,
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", 8080)),
+    allow_unsafe_werkzeug=True
+)
+
