@@ -1,9 +1,23 @@
-<h2>Pending Scams</h2>
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-8">
 
-{% for msg,count in data %}
-<p>{{ msg }} ({{ count }})</p>
+<h1 class="text-2xl mb-4">⚠ Pending Reports</h1>
 
-<a href="/admin/approve?msg={{ msg }}">Approve</a>
-<a href="/admin/delete?msg={{ msg }}">Delete</a>
-<hr>
+{% for msg, count in data %}
+<div class="bg-gray-800 p-4 mb-4 rounded">
+  <p>{{ msg }}</p>
+  <p>Reports: {{ count }}</p>
+
+  <a href="/admin/approve?msg={{ msg }}" class="bg-green-500 px-3 py-1 rounded">Approve</a>
+  <a href="/admin/delete?msg={{ msg }}" class="bg-red-500 px-3 py-1 rounded">Delete</a>
+</div>
 {% endfor %}
+
+<a href="/admin" class="underline">Back</a>
+
+</body>
+</html>
