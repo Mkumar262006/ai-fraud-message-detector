@@ -52,12 +52,12 @@ def detect_language(text):
     return "EN"
 
 # ==================================================
-# HARM ANALYSIS KEYWORDS
+# HARM KEYWORDS
 # ==================================================
 
 URGENCY_WORDS = [
     "urgent","immediately","act now","final warning","blocked",
-    "suspended","तुरंत","உடனே"
+    "suspended","action required","तुरंत","உடனே"
 ]
 
 FINANCIAL_WORDS = [
@@ -75,18 +75,39 @@ EMOTIONAL_WORDS = [
     "गरीब","உதவி"
 ]
 
-VIOLENCE_WORDS = [
-    "attack","riot","fight","destroy"
-]
-
 MEDICAL_MISINFO_WORDS = [
     "avoid doctor","stop medicine","home cure only"
 ]
 
-# ==================================================
-# HARM INDEX CALCULATION
-# ==================================================
+# Global banks & services
+BANK_KEYWORDS = [
+    "bank","account","kyc","rbi",
+    "sbi","icici","hdfc","axis",
+    "bank of america","chase","citibank",
+    "paypal","visa","mastercard"
+]
 
+ACCOUNT_VERIFICATION_PATTERNS = [
+    "verify your account",
+    "confirm your account",
+    "update account information",
+    "account hold",
+    "account suspended",
+    "confirm identity"
+]
+
+CLICK_ACTION_WORDS = [
+    "click here",
+    "tap link",
+    "open link",
+    "visit link"
+]
+
+URL_PATTERN = r"(https?://|www\.)"
+
+# ==================================================
+# HARM INDEX
+# ==================================================
 def calculate_harm_index(text):
 
     text_l = text.lower()
@@ -109,28 +130,41 @@ def calculate_harm_index(text):
         score += 2
         reasons.append("Uses emotional manipulation")
 
-    if any(w in text_l for w in VIOLENCE_WORDS):
-        score += 4
-        reasons.append("Contains potential violence trigger")
-
     if any(w in text_l for w in MEDICAL_MISINFO_WORDS):
         score += 3
         reasons.append("May cause medical negligence")
 
+    if any(w in text_l for w in ACCOUNT_VERIFICATION_PATTERNS):
+        score += 3
+        reasons.append("Requests account verification")
+
+    if any(w in text_l for w in CLICK_ACTION_WORDS):
+        score += 2
+        reasons.append("Encourages clicking unknown links")
+
+    if re.search(URL_PATTERN, text_l):
+        score += 2
+        reasons.append("Contains external link")
+
+    # Bank impersonation boost
+    if any(b in text_l for b in BANK_KEYWORDS) and any(w in text_l for w in ACCOUNT_VERIFICATION_PATTERNS):
+        score += 3
+        reasons.append("Possible bank impersonation attempt")
+
     return min(score,10), reasons
 
 # ==================================================
-# CLASSIFICATION USING HARM SCORE
+# CLASSIFICATION
 # ==================================================
 def classify_from_harm(score):
     if score >= 7:
         return "FRAUD"
     elif score >= 4:
         return "CAUTION"
-    return "GENUINE"
+    return "LOW RISK"
 
 # ==================================================
-# SIMILARITY LEARNING
+# COMMUNITY LEARNING
 # ==================================================
 SIM_THRESHOLD = 0.65
 MIN_REPORTERS = 3
@@ -184,12 +218,10 @@ def whatsapp():
     resp = MessagingResponse()
     reply = resp.message()
 
-    # EXIT
     if incoming.upper() == "EXIT":
         reply.body("Alerts stopped safely.")
         return str(resp)
 
-    # REPORT
     if incoming.upper() == "REPORT":
         if user in last_seen:
             msg,_ = last_seen[user]
@@ -205,17 +237,15 @@ def whatsapp():
             reply.body("No message found to report.")
         return str(resp)
 
-    # ================= HARM ANALYSIS =================
+    # Harm analysis
     harm_score, reasons = calculate_harm_index(incoming)
 
-    # similarity learning boost
     if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
         harm_score = max(harm_score,8)
 
     label = classify_from_harm(harm_score)
     last_seen[user] = (incoming,label)
 
-    # ================= RESPONSE BUILDER =================
     explanation = "\n".join([f"• {r}" for r in reasons]) if reasons else "No major harmful triggers detected."
 
     def respond(ta,en,hi):
@@ -242,7 +272,7 @@ Verify using official sources.
     return str(resp)
 
 # ==================================================
-# ADMIN
+# ADMIN DASHBOARD
 # ==================================================
 @app.route("/admin/dashboard")
 def admin():
