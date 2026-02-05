@@ -292,14 +292,11 @@ def whatsapp():
             broadcast_stats()
 
             if lang == "TA":
-                reply.body("புகார் சேமிக்கப்பட்டது
-                            https://cybercrime.gov.in/Webform/Accept.aspx")
+                reply.body("புகார் சேமிக்கப்பட்டது https://cybercrime.gov.in/Webform/Accept.aspx")
             elif lang == "HI":
-                reply.body("रिपोर्ट सहेजी गई 
-                            https://cybercrime.gov.in/Webform/Accept.aspx")
+                reply.body("रिपोर्ट सहेजी गई https://cybercrime.gov.in/Webform/Accept.aspx")
             else:
-                reply.body("Report saved 
-                            https://cybercrime.gov.in/Webform/Accept.aspx")
+                reply.body("Report saved  https://cybercrime.gov.in/Webform/Accept.aspx")
 
         return str(resp)
 
