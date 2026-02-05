@@ -208,8 +208,6 @@ def promote_if_trusted(msg):
 ai_memory = {}
 
 # ================= MULTILINGUAL AI CHAT =================
-if not os.environ.get("OPENAI_API_KEY"):
-    return "AI assistant temporarily unavailable."
 
 def ai_chat(user, message, lang):
 
