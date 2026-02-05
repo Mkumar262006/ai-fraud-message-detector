@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ================= OPENAI =================
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY")) 
 
 
 # ================= APP =================
@@ -208,6 +208,9 @@ def promote_if_trusted(msg):
 ai_memory = {}
 
 # ================= MULTILINGUAL AI CHAT =================
+if not os.environ.get("OPENAI_API_KEY"):
+    return "AI assistant temporarily unavailable."
+
 def ai_chat(user, message, lang):
 
     if user not in ai_memory:
