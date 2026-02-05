@@ -52,7 +52,7 @@ def detect_language(text):
     return "EN"
 
 # ==================================================
-# HARM KEYWORDS
+# HARM SIGNAL KEYWORDS
 # ==================================================
 
 URGENCY_WORDS = [
@@ -66,47 +66,52 @@ FINANCIAL_WORDS = [
 ]
 
 SENSITIVE_WORDS = [
-    "otp","bank details","account number","card details",
-    "ओटीपी","கணக்கு"
+    "otp","bank details","account number","card details"
 ]
 
 EMOTIONAL_WORDS = [
-    "help","poor","family suffering","save me",
-    "गरीब","உதவி"
+    "help","poor","family suffering","save me"
+]
+
+EMOTIONAL_VOLATILITY_WORDS = [
+    "panic","fear","last chance","danger","people dying"
+]
+
+CALL_TO_ACTION_PATTERNS = [
+    "send now","transfer immediately","click now",
+    "join protest","share this message","forward urgently"
+]
+
+DOG_WHISTLE_PATTERNS = [
+    "they are taking over",
+    "protect our people",
+    "our culture is under threat"
 ]
 
 MEDICAL_MISINFO_WORDS = [
     "avoid doctor","stop medicine","home cure only"
 ]
 
-# Global banks & services
 BANK_KEYWORDS = [
-    "bank","account","kyc","rbi",
-    "sbi","icici","hdfc","axis",
-    "bank of america","chase","citibank",
-    "paypal","visa","mastercard"
+    "bank","account","kyc","rbi","sbi","hdfc",
+    "bank of america","paypal","visa","mastercard"
 ]
 
 ACCOUNT_VERIFICATION_PATTERNS = [
     "verify your account",
     "confirm your account",
     "update account information",
-    "account hold",
-    "account suspended",
-    "confirm identity"
+    "account hold","account suspended"
 ]
 
 CLICK_ACTION_WORDS = [
-    "click here",
-    "tap link",
-    "open link",
-    "visit link"
+    "click here","tap link","open link","visit link"
 ]
 
 URL_PATTERN = r"(https?://|www\.)"
 
 # ==================================================
-# HARM INDEX
+# HARM INDEX CALCULATION
 # ==================================================
 def calculate_harm_index(text):
 
@@ -114,9 +119,13 @@ def calculate_harm_index(text):
     score = 0
     reasons = []
 
+    if any(w in text_l for w in EMOTIONAL_VOLATILITY_WORDS):
+        score += 2
+        reasons.append("Creates emotional panic or fear")
+
     if any(w in text_l for w in URGENCY_WORDS):
         score += 2
-        reasons.append("Creates urgency or panic")
+        reasons.append("Creates urgency pressure")
 
     if any(w in text_l for w in FINANCIAL_WORDS):
         score += 3
@@ -130,9 +139,17 @@ def calculate_harm_index(text):
         score += 2
         reasons.append("Uses emotional manipulation")
 
+    if any(w in text_l for w in CALL_TO_ACTION_PATTERNS):
+        score += 3
+        reasons.append("Encourages specific risky action")
+
     if any(w in text_l for w in MEDICAL_MISINFO_WORDS):
         score += 3
-        reasons.append("May cause medical negligence")
+        reasons.append("May lead to medical negligence")
+
+    if any(w in text_l for w in DOG_WHISTLE_PATTERNS):
+        score += 3
+        reasons.append("Contains coded social messaging")
 
     if any(w in text_l for w in ACCOUNT_VERIFICATION_PATTERNS):
         score += 3
@@ -146,10 +163,9 @@ def calculate_harm_index(text):
         score += 2
         reasons.append("Contains external link")
 
-    # Bank impersonation boost
     if any(b in text_l for b in BANK_KEYWORDS) and any(w in text_l for w in ACCOUNT_VERIFICATION_PATTERNS):
         score += 3
-        reasons.append("Possible bank impersonation attempt")
+        reasons.append("Possible bank impersonation")
 
     return min(score,10), reasons
 
@@ -227,26 +243,27 @@ def whatsapp():
             msg,_ = last_seen[user]
             save_pending(msg,user)
             promote_if_trusted(msg)
-
-            reply.body(
-                "✅ Report received.\n"
-                "Report officially:\n"
-                "https://cybercrime.gov.in"
-            )
+            reply.body("✅ Report received.\nhttps://cybercrime.gov.in")
         else:
             reply.body("No message found to report.")
         return str(resp)
 
-    # Harm analysis
+    # Harm Analysis
     harm_score, reasons = calculate_harm_index(incoming)
 
+    history_flag = False
     if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
         harm_score = max(harm_score,8)
+        history_flag = True
 
     label = classify_from_harm(harm_score)
     last_seen[user] = (incoming,label)
 
-    explanation = "\n".join([f"• {r}" for r in reasons]) if reasons else "No major harmful triggers detected."
+    history_note = ""
+    if history_flag:
+        history_note = "\n• Similar harmful messages were previously reported."
+
+    explanation = "\n".join([f"• {r}" for r in reasons]) + history_note
 
     def respond(ta,en,hi):
         if lang == "TA":
@@ -263,7 +280,7 @@ Why this message is risky:
 {explanation}
 
 Recommended Action:
-Do not share personal or financial details.
+Avoid sharing sensitive data.
 Verify using official sources.
 """
 
@@ -272,7 +289,7 @@ Verify using official sources.
     return str(resp)
 
 # ==================================================
-# ADMIN DASHBOARD
+# ADMIN
 # ==================================================
 @app.route("/admin/dashboard")
 def admin():
