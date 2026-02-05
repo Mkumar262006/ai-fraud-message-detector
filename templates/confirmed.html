@@ -1,13 +1,22 @@
-<h2>Confirmed Scam Messages</h2>
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
 
-<table border="1">
+<body class="bg-gray-900 text-white p-8">
+
+<h1 class="text-2xl mb-6">✅ Confirmed Scam Messages</h1>
+
+<div class="space-y-4">
 
 {% for row in data %}
-<tr>
-    <td>{{ row[0] }}</td>
-</tr>
+<div class="bg-red-700 p-4 rounded-xl">
+{{ row[0] }}
+</div>
 {% endfor %}
 
-</table>
+</div>
 
-<a href="/admin">Back</a>
+</body>
+</html>
