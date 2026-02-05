@@ -148,14 +148,47 @@ def looks_like_scam(text):
 def calculate_harm(text):
 
     t = text.lower()
-    score = sum(w in t for w in SCAM_WORDS)
-    reasons = [w for w in SCAM_WORDS if w in t]
+    score = 0
+    reasons = []
+
+    if any(w in t for w in EMOTIONAL_WORDS):
+        score += 2
+        reasons.append("Emotional manipulation")
+
+    if any(w in t for w in FINANCIAL_WORDS):
+        score += 3
+        reasons.append("Financial request")
+
+    if any(w in t for w in BANK_WORDS):
+        score += 3
+        reasons.append("Bank impersonation")
+
+    if any(w in t for w in SENSITIVE_WORDS):
+        score += 3
+        reasons.append("Sensitive data request")
+
+    if any(w in t for w in URGENCY_WORDS):
+        score += 2
+        reasons.append("Urgency pressure")
+
+    if any(w in t for w in GOVT_WORDS):
+        score += 2
+        reasons.append("Government impersonation")
+
+    if re.search(UPI_PATTERN,t):
+        score += 3
+        reasons.append("UPI payment detected")
+
+    if re.search(PHONE_PATTERN,t):
+        score += 2
+        reasons.append("Phone number shared")
 
     if re.search(URL_PATTERN,t):
         score += 2
-        reasons.append("External Link")
+        reasons.append("External suspicious link")
 
     return min(score,10), reasons
+
 
 def classify(score):
     if score >= 7: return "FRAUD"
@@ -206,6 +239,14 @@ def promote_if_trusted(msg):
 
 # ================= AI MEMORY =================
 ai_memory = {}
+
+# ================= COMMAND MENU =================
+def command_menu(lang):
+    if lang == "TA":
+        return "HELP → உதவி\nREPORT → புகார்\nTIPS → பாதுகாப்பு குறிப்புகள்"
+    if lang == "HI":
+        return "HELP → सहायता\nREPORT → रिपोर्ट\nTIPS → सुरक्षा सुझाव"
+    return "HELP → Guide\nREPORT → Report scam\nTIPS → Safety tips"
 
 # ================= MULTILINGUAL AI CHAT =================
 
@@ -271,6 +312,37 @@ def broadcast_stats():
         "confirmed": confirmed
     })
 
+def faq_router(text, lang):
+
+    t = text.lower()
+
+    if any(q in t for q in ["report","complaint","how to report","file scam"]):
+
+        if lang == "TA":
+            return (
+                "📢 மோசடி புகார் செய்ய:\n"
+                "1️⃣ சந்தேகமான செய்தியை அனுப்புங்கள்\n"
+                "2️⃣ பிறகு REPORT என்று டைப் செய்யுங்கள்\n\n"
+                "அது நிர்வாகிக்கு அனுப்பப்படும்."
+            )
+
+        if lang == "HI":
+            return (
+                "📢 धोखाधड़ी रिपोर्ट करने के लिए:\n"
+                "1️⃣ संदिग्ध संदेश भेजें\n"
+                "2️⃣ फिर REPORT टाइप करें\n\n"
+                "यह एडमिन को भेज दिया जाएगा।"
+            )
+
+        return (
+            "📢 To report a scam:\n"
+            "1️⃣ Send the suspicious message\n"
+            "2️⃣ Then type REPORT\n\n"
+            "Our system will review it."
+        )
+
+    return None
+
 # ================= WHATSAPP BOT =================
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
@@ -283,22 +355,78 @@ def whatsapp():
     reply = resp.message()
 
     # REPORT
-    if incoming.upper() == "REPORT":
+   # REPORT
+if incoming.upper() == "REPORT":
 
-        if user in last_seen:
-            msg,_ = last_seen[user]
-            save_pending(msg,user)
-            promote_if_trusted(msg)
-            broadcast_stats()
+    if user in last_seen:
 
-            if lang == "TA":
-                reply.body("புகார் சேமிக்கப்பட்டது https://cybercrime.gov.in/Webform/Accept.aspx")
-            elif lang == "HI":
-                reply.body("रिपोर्ट सहेजी गई https://cybercrime.gov.in/Webform/Accept.aspx")
-            else:
-                reply.body("Report saved  https://cybercrime.gov.in/Webform/Accept.aspx")
+        msg, _ = last_seen[user]
 
+        # Save pending report
+        save_pending(msg, user)
+
+        # Community learning promotion
+        promote_if_trusted(msg)
+
+        # Live dashboard update
+        broadcast_stats()
+
+        if lang == "TA":
+            reply.body(
+                "✅ புகார் பதிவு செய்யப்பட்டது\n"
+                "🔎 அதிகாரப்பூர்வ புகார்:\n"
+                "https://cybercrime.gov.in"
+            )
+
+        elif lang == "HI":
+            reply.body(
+                "✅ रिपोर्ट दर्ज हो गई\n"
+                "🔎 आधिकारिक शिकायत:\n"
+                "https://cybercrime.gov.in"
+            )
+
+        else:
+            reply.body(
+                "✅ Report recorded successfully\n"
+                "🔎 Official complaint portal:\n"
+                "https://cybercrime.gov.in"
+            )
+
+    else:
+
+        if lang == "TA":
+            reply.body("⚠ முதலில் சந்தேகமான செய்தியை அனுப்பவும்")
+
+        elif lang == "HI":
+            reply.body("⚠ पहले संदिग्ध संदेश भेजें")
+
+        else:
+            reply.body("⚠ Please send suspicious message first")
+
+    return str(resp)
+ # FAQ
+    faq = faq_router(incoming, lang)
+    if faq:
+        reply.body(faq)
         return str(resp)
+
+    # AI ASSISTANT
+    if not looks_like_scam(incoming):
+        reply.body(ai_chat(user, incoming, lang))
+        return str(resp)
+
+    # SCAM DETECTION
+    score,reasons = calculate_harm(incoming)
+
+    if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
+        score = max(score,8)
+
+    label = classify(score)
+    last_seen[user] = (incoming,label)
+
+    reply.body(f"⚠ Risk: {label}\nScore: {score}\n" + "\n".join(reasons))
+    return str(resp)
+
 
     # ===== AI ASSISTANT =====
     if not looks_like_scam(incoming):
