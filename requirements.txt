@@ -1,6 +1,6 @@
 flask
 flask-login
 flask-socketio
-eventlet
 twilio
+openai
 scikit-learn
