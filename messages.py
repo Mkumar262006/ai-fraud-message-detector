@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, render_template, redirect, url_for
 from twilio.twiml.messaging_response import MessagingResponse
 import sqlite3, os, re
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -41,89 +41,59 @@ def detect_language(text):
             return "HI"
     return "EN"
 
-# ================= MULTILINGUAL KEYWORDS =================
+# ================= KEYWORDS =================
 
-# Emotional manipulation
 EMOTIONAL_WORDS = [
-    # English
-    "help","poor","family emergency","urgent help","hospital bill",
-    "save my family","need help",
-
-    # Tamil
-    "உதவி","ஏழை","குடும்ப அவசரம்","மருத்துவ செலவு","உதவி செய்யுங்கள்",
-
-    # Hindi
-    "मदद","गरीब","परिवार संकट","अस्पताल खर्च","तुरंत मदद"
+    "help","poor","family emergency","medical emergency",
+    "உதவி","குடும்ப அவசரம்",
+    "मदद","परिवार संकट"
 ]
 
-# Financial keywords
 FINANCIAL_WORDS = [
-    "send money","transfer money","upi","pay now","processing fee",
-
-    "பணம் அனுப்பு","பணம் செலுத்துங்கள்","கட்டணம்",
-
-    "पैसे भेजो","भुगतान करो","शुल्क"
+    "send money","transfer","upi","pay","processing fee",
+    "பணம்","பணம் அனுப்பு",
+    "पैसे","भुगतान"
 ]
 
-# Bank impersonation
 BANK_WORDS = [
-    "bank","kyc","rbi","account blocked","account suspended",
-    "sbi","hdfc","icici","axis","bank of america","paypal",
-
-    "வங்கி","கணக்கு முடக்கம்","கேஒய்சி",
-
-    "बैंक","खाता बंद","केवाईसी"
+    "bank","kyc","rbi","account blocked",
+    "வங்கி","கணக்கு",
+    "बैंक","खाता"
 ]
 
-# Sensitive data
 SENSITIVE_WORDS = [
-    "otp","account number","card details","cvv","pin",
-
-    "ஒடிபி","கணக்கு எண்","வங்கி விவரம்",
-
-    "ओटीपी","खाता नंबर","कार्ड विवरण"
+    "otp","account number","card details","cvv",
+    "ஒடிபி","கணக்கு எண்",
+    "ओटीपी"
 ]
 
-# Urgency
 URGENCY_WORDS = [
-    "urgent","act now","immediately","last warning","final notice",
-
+    "urgent","act now","immediately",
     "அவசரம்","உடனே",
-
-    "तुरंत","अभी करें"
+    "तुरंत"
 ]
 
-# Government impersonation
 GOVT_WORDS = [
-    "government scheme","free money scheme","rbi notice",
-    "pm yojana","aadhaar update",
-
-    "அரசு திட்டம்","ஆதார் புதுப்பிப்பு",
-
-    "सरकारी योजना","आधार अपडेट"
+    "government scheme","aadhaar update","pm yojana",
+    "அரசு திட்டம்",
+    "सरकारी योजना"
 ]
 
-# Charity fraud
 CHARITY_WORDS = [
-    "charity","donation drive","ngo help","fundraiser",
-
-    "நன்கொடை","அரக்கட்டளை உதவி",
-
-    "दान अभियान","एनजीओ सहायता"
+    "charity","donation","fundraiser","ngo",
+    "நன்கொடை",
+    "दान"
 ]
 
-# Social engineering
 SOCIAL_ENGINEERING = [
-    "trusted source","secret opportunity","limited offer",
-    "only selected people"
+    "limited offer","secret opportunity","trusted source"
 ]
 
-# ================= PATTERNS =================
 PHONE_PATTERN = r"\b\d{9,13}\b"
 UPI_PATTERN = r"[a-zA-Z0-9.\-_]+@[a-zA-Z]+"
 URL_PATTERN = r"(https?://|www\.)"
 
-# ================= HARM ANALYSIS =================
+# ================= HARM INDEX =================
 def calculate_harm_index(text):
 
     t = text.lower()
@@ -135,56 +105,54 @@ def calculate_harm_index(text):
 
     if emotional_flag:
         score += 2
-        reasons.append("Emotional manipulation detected")
+        reasons.append("Emotional manipulation")
 
     if financial_flag:
         score += 3
-        reasons.append("Financial request detected")
+        reasons.append("Financial request")
 
     if any(w in t for w in BANK_WORDS):
         score += 3
-        reasons.append("Possible bank impersonation")
+        reasons.append("Bank impersonation")
 
     if any(w in t for w in SENSITIVE_WORDS):
         score += 3
-        reasons.append("Sensitive data request detected")
+        reasons.append("Sensitive data request")
 
     if any(w in t for w in URGENCY_WORDS):
         score += 2
-        reasons.append("Urgency pressure detected")
+        reasons.append("Urgency pressure")
 
     if any(w in t for w in GOVT_WORDS):
         score += 3
-        reasons.append("Government impersonation suspected")
+        reasons.append("Government impersonation")
 
     if any(w in t for w in CHARITY_WORDS) and financial_flag:
         score += 3
-        reasons.append("Possible donation fraud")
+        reasons.append("Donation fraud")
 
     if any(w in t for w in SOCIAL_ENGINEERING):
         score += 2
-        reasons.append("Social engineering language detected")
+        reasons.append("Social engineering")
 
     if re.search(UPI_PATTERN, t):
         score += 3
-        reasons.append("Payment ID detected")
+        reasons.append("UPI payment detected")
 
     if re.search(PHONE_PATTERN, t) and financial_flag:
         score += 3
-        reasons.append("Money requested via phone number")
+        reasons.append("Money requested via number")
 
     if re.search(URL_PATTERN, t):
         score += 2
-        reasons.append("External link detected")
+        reasons.append("External link")
 
-    # Emotional + payment → enforce CAUTION
     if emotional_flag and re.search(PHONE_PATTERN, t):
         score = max(score,4)
 
     return min(score,10), reasons
 
-# ================= CLASSIFICATION =================
-def classify_from_harm(score):
+def classify(score):
     if score >= 7:
         return "FRAUD"
     elif score >= 4:
@@ -219,17 +187,17 @@ def save_pending(msg, reporter):
 def promote_if_trusted(msg):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("SELECT COUNT(DISTINCT reporter) FROM pending_scams WHERE message=?",(msg,))
     count = cur.fetchone()[0]
 
     if count >= MIN_REPORTERS:
         cur.execute("INSERT OR IGNORE INTO confirmed_scams VALUES(NULL,?)",(msg,))
+        cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
         conn.commit()
 
     conn.close()
 
-# ================= WHATSAPP WEBHOOK =================
+# ================= WHATSAPP BOT =================
 last_seen = {}
 
 @app.route("/whatsapp", methods=["POST"])
@@ -242,79 +210,108 @@ def whatsapp():
     resp = MessagingResponse()
     reply = resp.message()
 
-    # EXIT
     if incoming.upper() == "EXIT":
-        if lang == "TA":
-            reply.body("அறிவிப்புகள் நிறுத்தப்பட்டது")
-        elif lang == "HI":
-            reply.body("सूचनाएं बंद कर दी गई हैं")
-        else:
-            reply.body("Alerts stopped")
+        reply.body("Alerts stopped")
         return str(resp)
 
-    # REPORT
     if incoming.upper() == "REPORT":
         if user in last_seen:
             msg,_ = last_seen[user]
             save_pending(msg,user)
             promote_if_trusted(msg)
-
-            reply.body(
-                "Report saved.\nhttps://cybercrime.gov.in"
-            )
+            reply.body("Report saved. https://cybercrime.gov.in")
         return str(resp)
 
-    # Harm Analysis
     harm_score, reasons = calculate_harm_index(incoming)
 
     if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
         harm_score = max(harm_score,8)
 
-    label = classify_from_harm(harm_score)
+    label = classify(harm_score)
     last_seen[user] = (incoming,label)
 
-    explanation = "\n".join(reasons) if reasons else "No major risk signals detected"
+    explanation = "\n".join(reasons) if reasons else "No major risk signals"
 
-    # ================= RESPONSE =================
     if lang == "TA":
-        message = f"""
-⚠️ ஆபத்து மதிப்பீடு: {harm_score}/10
-நிலை: {label}
-
-காரணங்கள்:
-{explanation}
-
-பரிந்துரை:
-தனிப்பட்ட தகவலை பகிர வேண்டாம்.
-அதிகாரப்பூர்வ தளங்களில் சரிபார்க்கவும்.
-"""
+        message = f"ஆபத்து மதிப்பீடு: {harm_score}/10\nநிலை: {label}\n{explanation}"
     elif lang == "HI":
-        message = f"""
-⚠️ जोखिम स्कोर: {harm_score}/10
-स्थिति: {label}
-
-कारण:
-{explanation}
-
-सुझाव:
-व्यक्तिगत जानकारी साझा न करें।
-आधिकारिक स्रोतों से जांच करें।
-"""
+        message = f"जोखिम स्कोर: {harm_score}/10\nस्थिति: {label}\n{explanation}"
     else:
-        message = f"""
-⚠️ Harm Index: {harm_score}/10
-Risk Level: {label}
-
-Reasons:
-{explanation}
-
-Advice:
-Do not share personal data.
-Verify using official sources.
-"""
+        message = f"Harm Index: {harm_score}/10\nRisk: {label}\n{explanation}"
 
     reply.body(message)
     return str(resp)
+
+# ================= ADMIN DASHBOARD =================
+@app.route("/admin")
+def admin_home():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM pending_scams")
+    pending = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM confirmed_scams")
+    confirmed = cur.fetchone()[0]
+
+    conn.close()
+
+    return render_template("dashboard.html", pending=pending, confirmed=confirmed)
+
+@app.route("/admin/pending")
+def admin_pending():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT message, COUNT(DISTINCT reporter)
+        FROM pending_scams
+        GROUP BY message
+    """)
+
+    data = cur.fetchall()
+    conn.close()
+
+    return render_template("pending.html", data=data)
+
+@app.route("/admin/confirmed")
+def admin_confirmed():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("SELECT message FROM confirmed_scams")
+    data = cur.fetchall()
+
+    conn.close()
+    return render_template("confirmed.html", data=data)
+
+@app.route("/admin/approve")
+def approve_scam():
+    msg = request.args.get("msg")
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("INSERT OR IGNORE INTO confirmed_scams VALUES(NULL,?)",(msg,))
+    cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("admin_pending"))
+
+@app.route("/admin/delete")
+def delete_scam():
+    msg = request.args.get("msg")
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
+    conn.commit()
+    conn.close()
+
+    return redirect(url_for("admin_pending"))
 
 # ================= SERVER =================
 if __name__ == "__main__":
