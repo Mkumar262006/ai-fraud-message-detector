@@ -1,11 +1,27 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for, Response
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
 from twilio.twiml.messaging_response import MessagingResponse
-import sqlite3, os, re
+import sqlite3, os, re, csv
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
+app.secret_key = "adminsecret"
+
 DB_PATH = "scam_system.db"
+
+# ================= LOGIN SYSTEM =================
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "admin_login"
+
+class Admin(UserMixin):
+    id = "admin"
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Admin()
 
 # ================= DATABASE =================
 def init_db():
@@ -16,21 +32,23 @@ def init_db():
     CREATE TABLE IF NOT EXISTS pending_scams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         message TEXT,
-        reporter TEXT
+        reporter TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS confirmed_scams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message TEXT UNIQUE
+        message TEXT UNIQUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
     conn.commit()
     conn.close()
 
-init_db()
+init_db()    
 
 # ================= LANGUAGE DETECTION =================
 def detect_language(text):
@@ -180,18 +198,19 @@ def similarity(msg, corpus):
 def save_pending(msg, reporter):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("INSERT INTO pending_scams VALUES(NULL,?,?)",(msg,reporter))
+    cur.execute("INSERT INTO pending_scams(message,reporter) VALUES (?,?)",(msg,reporter))
     conn.commit()
     conn.close()
 
 def promote_if_trusted(msg):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+
     cur.execute("SELECT COUNT(DISTINCT reporter) FROM pending_scams WHERE message=?",(msg,))
     count = cur.fetchone()[0]
 
     if count >= MIN_REPORTERS:
-        cur.execute("INSERT OR IGNORE INTO confirmed_scams VALUES(NULL,?)",(msg,))
+        cur.execute("INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",(msg,))
         cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
         conn.commit()
 
@@ -242,9 +261,31 @@ def whatsapp():
     reply.body(message)
     return str(resp)
 
+# ================= ADMIN LOGIN =================
+
+@app.route("/admin/login", methods=["GET","POST"])
+def admin_login():
+
+    if request.method=="POST":
+        if request.form["username"]=="admin" and request.form["password"]=="1234":
+            login_user(Admin())
+            return redirect("/admin")
+
+    return render_template("login.html")
+
+@app.route("/admin/logout")
+@login_required
+def admin_logout():
+    logout_user()
+    return redirect("/admin/login")
+
+
 # ================= ADMIN DASHBOARD =================
+
 @app.route("/admin")
+@login_required
 def admin_home():
+
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
@@ -259,7 +300,9 @@ def admin_home():
     return render_template("dashboard.html", pending=pending, confirmed=confirmed)
 
 @app.route("/admin/pending")
+@login_required
 def admin_pending():
+
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
@@ -275,44 +318,63 @@ def admin_pending():
     return render_template("pending.html", data=data)
 
 @app.route("/admin/confirmed")
+@login_required
 def admin_confirmed():
+
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("SELECT message FROM confirmed_scams")
     data = cur.fetchall()
-
     conn.close()
+
     return render_template("confirmed.html", data=data)
 
 @app.route("/admin/approve")
-def approve_scam():
+@login_required
+def approve():
     msg = request.args.get("msg")
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("INSERT OR IGNORE INTO confirmed_scams VALUES(NULL,?)",(msg,))
     cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
-
     conn.commit()
     conn.close()
 
-    return redirect(url_for("admin_pending"))
+    return redirect("/admin/pending")
 
 @app.route("/admin/delete")
-def delete_scam():
+@login_required
+def delete():
     msg = request.args.get("msg")
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-
     cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
     conn.commit()
     conn.close()
 
-    return redirect(url_for("admin_pending"))
+    return redirect("/admin/pending")
 
+# ================= EXPORT CSV =================
+
+@app.route("/admin/export")
+@login_required
+def export_csv():
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT message FROM confirmed_scams")
+    rows = cur.fetchall()
+
+    def generate():
+        yield "Message\n"
+        for r in rows:
+            yield f"{r[0]}\n"
+
+    return Response(generate(), mimetype="text/csv",
+        headers={"Content-Disposition":"attachment;filename=scams.csv"})
+    
 # ================= SERVER =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT",8080)))
