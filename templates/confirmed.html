@@ -1,0 +1,13 @@
+<h2>Confirmed Scam Messages</h2>
+
+<table border="1">
+
+{% for row in data %}
+<tr>
+    <td>{{ row[0] }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+<a href="/admin">Back</a>

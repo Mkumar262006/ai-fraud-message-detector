@@ -1,0 +1,24 @@
+<h2>Pending Scam Reports</h2>
+
+<table border="1">
+<tr>
+    <th>Message</th>
+    <th>Reports</th>
+    <th>Actions</th>
+</tr>
+
+{% for msg, count in data %}
+<tr>
+    <td>{{ msg }}</td>
+    <td>{{ count }}</td>
+    <td>
+        <a href="/admin/approve?msg={{ msg }}">Approve</a>
+        |
+        <a href="/admin/delete?msg={{ msg }}">Delete</a>
+    </td>
+</tr>
+{% endfor %}
+
+</table>
+
+<a href="/admin">Back</a>

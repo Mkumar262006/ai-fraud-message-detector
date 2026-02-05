@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h1>Scam Monitoring Dashboard</h1>
+
+<p>Pending Scams: {{ pending }}</p>
+<p>Confirmed Scams: {{ confirmed }}</p>
+
+<canvas id="scamChart"></canvas>
+
+<script>
+const ctx = document.getElementById('scamChart');
+
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Pending', 'Confirmed'],
+        datasets: [{
+            label: 'Scam Reports',
+            data: [{{ pending }}, {{ confirmed }}]
+        }]
+    }
+});
+</script>
+
+<br>
+<a href="/admin/pending">View Pending</a>
+<br>
+<a href="/admin/confirmed">View Confirmed</a>
+
+</body>
+</html>
