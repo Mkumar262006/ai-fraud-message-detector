@@ -11,7 +11,7 @@
 
 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-{% for msg,count in data %}
+{% for msg, count in data %}
 
 <div class="bg-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-xl border border-white/10 hover:scale-105 transition">
 
@@ -31,12 +31,12 @@ Under Review
 
 <div class="flex justify-between">
 
-<a href="/admin/approve?msg={{ msg }}"
+<a href="/admin/approve?msg={{ msg | urlencode }}"
 class="bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700">
 Approve
 </a>
 
-<a href="/admin/delete?msg={{ msg }}"
+<a href="/admin/delete?msg={{ msg | urlencode }}"
 class="bg-red-600 px-4 py-2 rounded-xl hover:bg-red-700">
 Delete
 </a>
