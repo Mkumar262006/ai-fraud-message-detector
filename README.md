@@ -166,51 +166,115 @@ This connects AI insights with real-world action.
 
 ---
 
-## 🚀 Procedures (Setup & Execution)
+## ⚙️ Prototype Working Procedure
 
-### Step 1: Clone Repository
-```bash
-git clone https://github.com/<your-username>/<repository-name>.git
-cd <repository-name>
-``` 
-### Step 2: Install dependencies
-```bash
-pip install -r requirements.txt
-```
+This prototype works as a real-time WhatsApp-based AI assistant that helps users identify scam, fraud, and harmful messages using ethical, harm-focused reasoning.
 
-### Step 3: Configure Environment variables
-```bash
-export TWILIO_ACCOUNT_SID=your_account_sid
-export TWILIO_AUTH_TOKEN=your_auth_token
+---
 
-```
-### Step 4: Run application
-```bash
-python messages.py
-```
-#### Server runs on
-```arudino
-http://localhost:8080
-```
-### Step 5: Whatsapp Integration
-#### Set twilio Webhook
-```arudino
-https://<deployment-url>/whatsapp
-```
-#### User commands:
+### 🧩 Step 1: User Sends a Message
+The user forwards or types any message received on WhatsApp (SMS-style or chat text) to the bot.
 
-##### Send message → Harm analysis
+Examples:
+- Bank alerts
+- OTP requests
+- Financial help messages
+- Investment offers
+- Cybercrime questions
 
-##### REPORT → Community reporting
+---
 
-##### EXIT → Stop alert
+### 🧠 Step 2: Language Detection
+The system automatically detects the message language:
+- Tamil
+- Hindi
+- English
 
-### Step 6: Admin Access
-```bash
-/admin
-/admin/pending
+The response language is adjusted accordingly.
 
-```
+---
+
+### 🔍 Step 3: Intent Identification
+The system checks the message intent in the following order:
+1. Scam or fraud content  
+2. Cyber awareness or cybersecurity question  
+3. Normal greeting or polite exit  
+
+This ensures natural conversation and avoids unnecessary warnings.
+
+---
+
+### ⚠️ Step 4: Harm-Focused Risk Analysis
+Instead of simple true/false classification, the system calculates a **Harm Index (0–10)** using:
+- Urgency or panic language
+- Emotional manipulation
+- Requests for money or personal data
+- Bank or government impersonation
+- Presence of phone numbers, UPI IDs, or links
+
+Each detected risk factor contributes to the final score.
+
+---
+
+### 🏷️ Step 5: Risk Classification
+Based on the Harm Index:
+- **LOW RISK** – No strong harmful indicators
+- **CAUTION** – Suspicious or potentially misleading
+- **FRAUD** – High likelihood of scam or harm
+
+Clear reasons are shown to the user for transparency.
+
+---
+
+### 🌍 Step 6: Multilingual Explanation
+The system explains:
+- Why the message is risky
+- What action the user should take
+
+Responses are shown in:
+- Tamil + English
+- Hindi + English
+- English only
+
+---
+
+### 🚨 Step 7: Community Reporting (Optional)
+If the user types **REPORT**:
+- The previous message is saved in a pending review list
+- The system waits for multiple independent reports
+- Only after sufficient community confirmation is it learned as a scam
+
+This prevents false reporting and misuse.
+
+---
+
+### 🏛️ Step 8: Official Guidance
+For confirmed or high-risk cases, the system provides links to official Indian portals:
+- Cybercrime reporting
+- Banking complaint systems
+- Telecom spam reporting
+
+This bridges AI detection with real-world action.
+
+---
+
+### 🧑‍💻 Step 9: Admin Moderation Dashboard
+Admins can:
+- View pending scam reports
+- Approve or reject reports
+- Review confirmed scam patterns
+- Export verified scam data
+
+All learning remains human-supervised and ethical.
+
+---
+
+### 🔁 Step 10: Continuous Learning
+The system improves over time by:
+- Learning from confirmed scam patterns
+- Preventing learning from single or malicious reports
+- Maintaining explainability and user trust
+
 ## 🏷️ Domain & Category
   . Primary Domain: Social Good
 
