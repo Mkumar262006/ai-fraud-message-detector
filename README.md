@@ -39,8 +39,7 @@ No additional app installation is required.
 ## 🧠 Core Capabilities
 
 ### 🔹 Supported Platforms
-- WhatsApp (via Twilio)
-- SMS (extensible via Twilio)
+- any sms or whatsapp msg can sent to WhatsApp (via Twilio)
 
 ---
 
