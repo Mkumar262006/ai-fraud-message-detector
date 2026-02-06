@@ -67,14 +67,7 @@ def detect_language(text):
 
     return "EN"
 
-GREETINGS = [
-    "hi", "hello", "hey", "who are you", "what is this",
-    "வணக்கம்", "ஹாய்", "நீங்கள் யார்",
-    "नमस्ते", "हैलो", "आप कौन हैं"
-]
-def is_greeting(text):
-    t = text.lower().strip()
-    return any(g in t for g in GREETINGS)
+
 
 
 # CYBER QUESTION DETECTION
@@ -363,6 +356,15 @@ def faq_router(text, lang):
         )
 
     return None
+# =======GREETING=====================
+def is_greeting(text):
+    t = text.lower().strip()
+    greetings = [
+        "hi", "hello", "hey", "hai",
+        "who are you", "what is this",
+        "help", "start"
+    ]
+    return t in greetings
 
 # ================= WHATSAPP BOT =================
 @app.route("/whatsapp", methods=["POST"])
@@ -425,16 +427,12 @@ def whatsapp():
 
         return str(resp)
 
+    
+
     # FAQ
     faq = faq_router(incoming, lang)
     if faq:
         reply.body(faq)
-        return str(resp)
-
-    # ================= CYBER AWARENESS Q&A =================
-    if is_cyber_question(incoming):
-        answer = cyber_awareness_response(incoming, lang)
-        reply.body(answer)
         return str(resp)
 
     # GREETING RESPONSE
@@ -458,39 +456,37 @@ def whatsapp():
                 "Please paste a suspicious message."
             )
         return str(resp)
-
-
-
-    # NON-SCAM & NON-CYBER QUESTION FALLBACK
-    if not looks_like_scam(incoming) and not is_cyber_question(incoming):
-        if lang == "TA":
-            reply.body(
-                "ℹ️ நான் செய்திகளை ஆபத்து மதிப்பீடு செய்ய உதவுகிறேன்.\n"
-                "தயவுசெய்து சந்தேகமான செய்தியை அனுப்புங்கள்."
-            )
-        elif lang == "HI":
-            reply.body(
-                "ℹ️ मैं संदेशों का जोखिम विश्लेषण करता हूँ।\n"
-                "कृपया कोई संदिग्ध संदेश भेजें।"
-            )
-        else:
-            reply.body(
-                "ℹ️ I analyze messages for scam or harm risk.\n"
-                "Please paste a message you want me to check."
-            )
+        
+    # CYBER AWARENESS Q&A (IMPORTANT: BEFORE FALLBACK)
+    if is_cyber_question(incoming):
+        answer = cyber_awareness_response(incoming, lang)
+        reply.body(answer)
         return str(resp)
 
+     # 5️⃣ SCAM DETECTION
+    if looks_like_scam(incoming):
+        score, reasons = calculate_harm(incoming)
 
-    # SCAM DETECTION
-    score, reasons = calculate_harm(incoming)
+        if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
+            score = max(score, 8)
 
-    if similarity(incoming, fetch("confirmed_scams")) > SIM_THRESHOLD:
-        score = max(score, 8)
+        label = classify(score)
+        last_seen[user] = (incoming, label)
 
-    label = classify(score)
-    last_seen[user] = (incoming, label)
+        reply.body(
+            f"⚠ Risk Level: {label}\n"
+            f"Harm Score: {score}\n"
+            + "\n".join(reasons)
+        )
+        return str(resp)
 
-    reply.body(f"⚠ Risk: {label}\nScore: {score}\n" + "\n".join(reasons))
+    # 6️⃣ FINAL FALLBACK (ONLY IF NOTHING MATCHES)
+    if lang == "TA":
+        reply.body("ℹ️ தயவுசெய்து ஒரு சந்தேகமான செய்தி அல்லது கேள்வி அனுப்புங்கள்.")
+    elif lang == "HI":
+        reply.body("ℹ️ कृपया कोई संदिग्ध संदेश या प्रश्न भेजें।")
+    else:
+        reply.body("ℹ️ Please send a suspicious message or a cyber safety question.")
 
     return str(resp)
 
