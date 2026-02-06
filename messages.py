@@ -424,7 +424,7 @@ def whatsapp():
                 reply.body("⚠ पहले संदिग्ध संदेश भेजें")
 
             else:
-                reply.body("⚠ Please send suspicious message first")
+                reply.body("⚠️ Invalid input detected. Please provide a suspicious message you would like us to check for potential scams.")
 
         return str(resp)
 
