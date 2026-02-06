@@ -94,6 +94,7 @@ def cyber_awareness_response(user_text, lang):
     system_prompt = (
         "You are a cybersecurity awareness assistant for Indian users. "
         "Explain scams, cybercrime, and online safety in simple terms. "
+        "You also need to help the user regarding all cyber questions"
         "Do NOT explain how to commit crimes. Keep under 150 words."
     )
 
