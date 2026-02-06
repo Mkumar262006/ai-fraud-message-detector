@@ -173,7 +173,7 @@ Before using the scam detection system, you need to connect to the WhatsApp bot.
 
 1️⃣ **Message to this WhatsApp number**  
 ```bash
-+1 415 523 8886**
++1 415 523 8886
 ```
 2️⃣ **Open WhatsApp and send this message:**  
 ```bash
