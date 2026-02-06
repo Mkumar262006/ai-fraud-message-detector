@@ -191,12 +191,12 @@ The system will instantly analyze your message and guide you safely.
 
 ---
 
-## *No app installation required. Works directly inside WhatsApp.*
+### No app installation required. Works directly inside WhatsApp.
 
-##  How The Prototype Works : 
+##  How The Prototype Works 
 
 This prototype works as a real-time WhatsApp-based AI assistant that helps users identify scam, fraud, and harmful messages using ethical, harm-focused reasoning.
----
+
 ###  Step 1: User Sends a Message
 The user forwards or types any message received on WhatsApp (SMS-style or chat text) to the bot.
 
