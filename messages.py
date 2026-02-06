@@ -74,7 +74,7 @@ def detect_language(text):
 # ===============================
 CYBER_QN_KEYWORDS = [
     "cybercrime","cyber threat","online fraud","scam","cybersafety",
-    "phishing","otp fraud","bank fraud","digital fraud",
+    "phishing","otp fraud","bank fraud","digital fraud","cybersecurity"
     "types of scams","what is scam","how scams work",
     "cyber safety","online safety","is this scam"
 ]
