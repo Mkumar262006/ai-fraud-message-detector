@@ -2,13 +2,13 @@ from flask import Flask, request, render_template, redirect, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
 from flask_socketio import SocketIO
 from twilio.twiml.messaging_response import MessagingResponse
-from openai import OpenAI
+import openai
 import sqlite3, os, re, datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ================= OPENAI =================
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY")) 
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 # ================= APP =================
@@ -67,7 +67,50 @@ def detect_language(text):
             return "HI"
 
     return "EN"
+# CYBER QUESTION DETECTION
+# ===============================
+CYBER_QN_KEYWORDS = [
+    "cybercrime","cyber threat","online fraud","scam",
+    "phishing","otp fraud","bank fraud","digital fraud",
+    "types of scams","what is scam","how scams work",
+    "cyber safety","online safety","is this scam"
+]
 
+def is_cyber_question(text):
+    t = text.lower()
+    return (
+        ("?" in text or any(w in t for w in ["what","how","why","explain","types"])) and
+        any(k in t for k in CYBER_QN_KEYWORDS)
+    )
+
+# ===============================
+# OPENAI CYBER AWARENESS RESPONSE
+# ===============================
+def cyber_awareness_response(user_text, lang):
+    system_prompt = (
+        "You are a cybersecurity awareness assistant for Indian users. "
+        "Answer only educational questions about cybercrime, scams, and online safety. "
+        "Do NOT provide instructions for illegal activities or how to commit scams. "
+        "Keep the answer simple, safety-focused, and under 150 words."
+    )
+
+    if lang == "TA":
+        system_prompt += " Respond in Tamil and English."
+    elif lang == "HI":
+        system_prompt += " Respond in Hindi and English."
+    else:
+        system_prompt += " Respond in English."
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text}
+        ],
+        temperature=0.3
+    )
+
+    return response.choices[0].message.content.strip()
 # ================= KEYWORDS =================
 # ================= KEYWORDS =================
 
@@ -237,8 +280,6 @@ def promote_if_trusted(msg):
 
     conn.close()
 
-# ================= AI MEMORY =================
-ai_memory = {}
 
 # ================= COMMAND MENU =================
 def command_menu(lang):
@@ -248,37 +289,6 @@ def command_menu(lang):
         return "HELP → सहायता\nREPORT → रिपोर्ट\nTIPS → सुरक्षा सुझाव"
     return "HELP → Guide\nREPORT → Report scam\nTIPS → Safety tips"
 
-# ================= MULTILINGUAL AI CHAT =================
-
-def ai_chat(user, message, lang):
-
-    if user not in ai_memory:
-        ai_memory[user] = []
-
-    ai_memory[user].append({"role":"user","content":message})
-
-    language_prompt = {
-        "TA": "Respond ONLY in Tamil.",
-        "HI": "Respond ONLY in Hindi.",
-        "EN": "Respond ONLY in English."
-    }
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role":"system",
-                "content":
-                "You are a cyber safety assistant helping users avoid scams.\n"
-                + language_prompt.get(lang,"Respond in English.")
-            }
-        ] + ai_memory[user][-6:]
-    )
-
-    reply = response.choices[0].message.content
-    ai_memory[user].append({"role":"assistant","content":reply})
-
-    return reply
 
 # ================= MULTILINGUAL SCAM RESPONSE =================
 def scam_reply(lang, score, label, reasons):
@@ -410,10 +420,32 @@ def whatsapp():
         reply.body(faq)
         return str(resp)
 
-    # AI ASSISTANT
-    if not looks_like_scam(incoming):
-        reply.body(ai_chat(user, incoming, lang))
+    # ================= CYBER AWARENESS Q&A =================
+    if is_cyber_question(incoming):
+        answer = cyber_awareness_response(incoming, lang)
+        reply.body(answer)
         return str(resp)
+
+
+    # NON-SCAM & NON-CYBER QUESTION FALLBACK
+    if not looks_like_scam(incoming) and not is_cyber_question(incoming):
+        if lang == "TA":
+            reply.body(
+                "ℹ️ நான் செய்திகளை ஆபத்து மதிப்பீடு செய்ய உதவுகிறேன்.\n"
+                "தயவுசெய்து சந்தேகமான செய்தியை அனுப்புங்கள்."
+            )
+        elif lang == "HI":
+            reply.body(
+                "ℹ️ मैं संदेशों का जोखिम विश्लेषण करता हूँ।\n"
+                "कृपया कोई संदिग्ध संदेश भेजें।"
+            )
+        else:
+            reply.body(
+                "ℹ️ I analyze messages for scam or harm risk.\n"
+                "Please paste a message you want me to check."
+            )
+        return str(resp)
+
 
     # SCAM DETECTION
     score, reasons = calculate_harm(incoming)
