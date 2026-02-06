@@ -172,8 +172,9 @@ This connects AI insights with real-world action.
 Before using the scam detection system, you need to connect to the WhatsApp bot.
 
 1️⃣ **Message to this WhatsApp number**  
-    **+1 415 523 8886**
-
+```bash
++1 415 523 8886**
+```
 2️⃣ **Open WhatsApp and send this message:**  
 ```bash
    join factor-sang
