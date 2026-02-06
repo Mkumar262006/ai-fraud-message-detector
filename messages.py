@@ -126,48 +126,65 @@ def cyber_awareness_response(user_text, lang):
 
 EMOTIONAL_WORDS = [
     "help","poor","family emergency","medical emergency",
-    "உதவி","குடும்ப அவசரம்",
-    "मदद","परिवार संकट"
+    "urgent help","please help",
+    "உதவி","குடும்ப அவசரம்","அவசர உதவி",
+    "मदद","परिवार संकट","तुरंत मदद"
 ]
 
 FINANCIAL_WORDS = [
-    "send money","transfer","upi","pay","processing fee",
-    "பணம்","பணம் அனுப்பு",
-    "पैसे","भुगतान"
+    "send money","transfer","upi","pay","payment","processing fee",
+    "pay now","pay immediately",
+    "பணம்","பணம் அனுப்பு","பணம் செலுத்த",
+    "पैसे","भुगतान","पेमेंट"
 ]
 
 BANK_WORDS = [
-    "bank","kyc","rbi","account blocked",
-    "வங்கி","கணக்கு",
-    "बैंक","खाता"
+    "bank","kyc","rbi","account blocked","account suspended",
+    "kyc pending","kyc expired","verify kyc","update kyc",
+    "sbi","hdfc","icici","axis","kotak",
+    "வங்கி","கணக்கு","கேவாய்",
+    "बैंक","खाता","केवाईसी"
 ]
 
 SENSITIVE_WORDS = [
-    "otp","account number","card details","cvv",
-    "ஒடிபி","கணக்கு எண்",
-    "ओटीपी"
+    "otp","one time password","account number","card details","cvv",
+    "pan","aadhaar",
+    "ஒடிபி","கணக்கு எண்","ஆதார்",
+    "ओटीपी","पैन","आधार"
 ]
 
 URGENCY_WORDS = [
-    "urgent","act now","immediately",
-    "அவசரம்","உடனே",
-    "तुरंत"
+    "urgent","act now","immediately","within 24 hours",
+    "do not ignore","final warning",
+    "அவசரம்","உடனே","புறக்கணிக்க வேண்டாம்",
+    "तुरंत","अभी","अनदेखा न करें"
 ]
 
 GOVT_WORDS = [
     "government scheme","aadhaar update","pm yojana",
-    "அரசு திட்டம்",
-    "सरकारी योजना"
+    "traffic police","cyber crime cell","court notice",
+    "income tax","gst department",
+    "அரசு திட்டம்","சைபர் குற்றப்பிரிவு",
+    "सरकारी योजना","साइबर क्राइम","पुलिस"
+]
+
+AUTHORITY_THREAT_WORDS = [
+    "arrest","arrest warrant","legal action","case registered",
+    "police case","court case","investigation",
+    "கைது","வாரண்ட்",
+    "गिरफ्तार","कानूनी कार्रवाई"
 ]
 
 CHARITY_WORDS = [
     "charity","donation","fundraiser","ngo",
-    "நன்கொடை",
-    "दान"
+    "relief fund","crowdfunding",
+    "நன்கொடை","அரசு உதவி",
+    "दान","चंदा"
 ]
 
 SOCIAL_ENGINEERING = [
-    "limited offer","secret opportunity","trusted source"
+    "limited offer","secret opportunity","trusted source",
+    "exclusive offer","verify immediately"
 ]
 
 PHONE_PATTERN = r"\b\d{9,13}\b"
@@ -185,16 +202,14 @@ SCAM_WORDS = (
     + SOCIAL_ENGINEERING
 )
 
-
 # ================= INTENT DETECTION =================
 def looks_like_scam(text):
     t = text.lower()
-
     return (
         any(w in t for w in SCAM_WORDS)
-        or re.search(PHONE_PATTERN,t)
-        or re.search(UPI_PATTERN,t)
-        or re.search(URL_PATTERN,t)
+        or re.search(PHONE_PATTERN, t)
+        or re.search(UPI_PATTERN, t)
+        or re.search(URL_PATTERN, t)
     )
 
 # ================= HARM INDEX =================
@@ -204,48 +219,84 @@ def calculate_harm(text):
     score = 0
     reasons = []
 
-    if any(w in t for w in EMOTIONAL_WORDS):
+    emotional = any(w in t for w in EMOTIONAL_WORDS)
+    financial = any(w in t for w in FINANCIAL_WORDS)
+    bank = any(w in t for w in BANK_WORDS)
+    sensitive = any(w in t for w in SENSITIVE_WORDS)
+    urgent = any(w in t for w in URGENCY_WORDS)
+    govt = any(w in t for w in GOVT_WORDS)
+    authority = any(w in t for w in AUTHORITY_THREAT_WORDS)
+
+    has_upi = re.search(UPI_PATTERN, t)
+    has_phone = re.search(PHONE_PATTERN, t)
+    has_link = re.search(URL_PATTERN, t)
+
+    # Base scoring
+    if emotional:
         score += 2
         reasons.append("Emotional manipulation")
 
-    if any(w in t for w in FINANCIAL_WORDS):
+    if financial:
         score += 3
-        reasons.append("Financial request")
+        reasons.append("Direct financial request")
 
-    if any(w in t for w in BANK_WORDS):
-        score += 3
+    if bank:
+        score += 4
         reasons.append("Bank impersonation")
 
-    if any(w in t for w in SENSITIVE_WORDS):
-        score += 3
+    if sensitive:
+        score += 4
         reasons.append("Sensitive data request")
 
-    if any(w in t for w in URGENCY_WORDS):
+    if urgent:
         score += 2
         reasons.append("Urgency pressure")
 
-    if any(w in t for w in GOVT_WORDS):
-        score += 2
+    if govt:
+        score += 3
         reasons.append("Government impersonation")
 
-    if re.search(UPI_PATTERN,t):
+    if authority:
+        score += 4
+        reasons.append("Authority threat or intimidation")
+
+    if has_upi:
         score += 3
         reasons.append("UPI payment detected")
 
-    if re.search(PHONE_PATTERN,t):
+    if has_phone:
         score += 2
         reasons.append("Phone number shared")
 
-    if re.search(URL_PATTERN,t):
+    if has_link:
         score += 2
-        reasons.append("External suspicious link")
+        reasons.append("Suspicious external link")
 
-    return min(score,10), reasons
+    # 🔥 COMPOUND RISK BOOSTS (CRITICAL)
+    if bank and urgent and has_link:
+        score += 3
+        reasons.append("High-risk bank phishing pattern")
+
+    if govt and authority:
+        score += 3
+        reasons.append("Fake law enforcement threat")
+
+    if emotional and financial and has_upi:
+        score += 3
+        reasons.append("Emotional financial scam pattern")
+
+    if sensitive and has_link:
+        score += 2
+        reasons.append("Credential harvesting attempt")
+
+    return min(score, 10), reasons
 
 
 def classify(score):
-    if score >= 7: return "FRAUD"
-    if score >= 4: return "CAUTION"
+    if score >= 7:
+        return "FRAUD"
+    if score >= 4:
+        return "CAUTION"
     return "LOW RISK"
 
 # ================= COMMUNITY LEARNING =================
