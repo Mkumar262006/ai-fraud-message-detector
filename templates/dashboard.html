@@ -8,6 +8,25 @@
 
 <body class="bg-gradient-to-br from-black via-gray-900 to-black text-white p-8">
 
+<!-- 🔔 FLASH POPUP (ADDED - DO NOT REMOVE) -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div id="popup"
+         class="fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-xl text-white
+                {% if messages[0][0] == 'success' %} bg-green-600 {% else %} bg-red-600 {% endif %}">
+      {{ messages[0][1] }}
+    </div>
+
+    <script>
+      setTimeout(() => {
+        const popup = document.getElementById("popup");
+        if (popup) popup.remove();
+      }, 4000);
+    </script>
+  {% endif %}
+{% endwith %}
+<!-- 🔔 END FLASH POPUP -->
+
 <h1 class="text-4xl font-bold mb-10">
 🛡 Scam Intelligence Command Center
 </h1>
