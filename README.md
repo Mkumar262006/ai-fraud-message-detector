@@ -1,4 +1,29 @@
 #  Harm-Focused Misinformation Risk Analysis System
+##  How to Start Using the Prototype (WhatsApp)
+
+Before using the scam detection system, you need to connect to the WhatsApp bot.
+
+1️⃣ **Message to this WhatsApp number**  
+```bash
++1 415 523 8886
+```
+2️⃣ **Open WhatsApp and send this message:**  
+```bash
+   join factor-sang
+```
+3️⃣ Once you receive the confirmation message, **you are connected** to the system.
+
+4️⃣ Now you can start sending:
+- Suspicious messages
+- Bank alerts
+- OTP or payment requests
+- Cybercrime or online safety questions
+
+The system will instantly analyze your message and guide you safely.
+
+---
+
+### No app installation required. Works directly inside WhatsApp.
 
 ## Overview
 This project is an **AI-based harm analysis system** designed to help people in India **assess the real-world risk of messages** received via **WhatsApp and SMS**.
