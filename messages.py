@@ -427,15 +427,7 @@ def whatsapp():
 
         return str(resp)
 
-    
-
-    # FAQ
-    faq = faq_router(incoming, lang)
-    if faq:
-        reply.body(faq)
-        return str(resp)
-
-    # GREETING RESPONSE
+     # GREETING RESPONSE
     if is_greeting(incoming):
         if lang == "TA":
             reply.body(
@@ -456,6 +448,14 @@ def whatsapp():
                 "Please paste a suspicious message."
             )
         return str(resp)
+
+    # FAQ
+    faq = faq_router(incoming, lang)
+    if faq:
+        reply.body(faq)
+        return str(resp)
+
+   
         
     # CYBER AWARENESS Q&A (IMPORTANT: BEFORE FALLBACK)
     if is_cyber_question(incoming):
