@@ -483,11 +483,11 @@ def whatsapp():
 
     # 6️⃣ FINAL FALLBACK (ONLY IF NOTHING MATCHES)
     if lang == "TA":
-        reply.body("ℹ️ தயவுசெய்து ஒரு சந்தேகமான செய்தி அல்லது கேள்வி அனுப்புங்கள்.")
+        reply.body("ℹ️ தயவு செய்து மோசடி கண்டறிதல் (Scam Detection) அல்லது சைபர் பாதுகாப்பு தொடர்பான கேள்விகளை மட்டும் அனுப்புங்கள்.")
     elif lang == "HI":
-        reply.body("ℹ️ कृपया कोई संदिग्ध संदेश या प्रश्न भेजें।")
+        reply.body("ℹ️ कृपया केवल धोखाधड़ी पहचान (Scam Detection) या साइबर सुरक्षा से संबंधित प्रश्न ही भेजें।")
     else:
-        reply.body("ℹ️ Please send a suspicious message or a cyber safety question.")
+        reply.body("ℹ️ Please send messages intended for detection or a cyber safety question.")
 
     return str(resp)
 
