@@ -1,6 +1,6 @@
-# 🛡️ Harm-Focused Misinformation Risk Analysis System
+#  Harm-Focused Misinformation Risk Analysis System
 
-## 📌 Overview
+## Overview
 This project is an **AI-based harm analysis system** designed to help people in India **assess the real-world risk of messages** received via **WhatsApp and SMS**.
 
 Instead of treating misinformation as simply *true or false*, the system evaluates the **risk of harm** a message may cause — such as financial loss, panic, emotional manipulation, or unsafe actions.
@@ -9,7 +9,7 @@ The solution works directly on platforms people already use and supports **Engli
 
 ---
 
-## 🎯 Problem Statement
+##  Problem Statement
 In India, misinformation often spreads through private channels like WhatsApp and SMS.  
 Many harmful messages are not outright false but still cause damage by:
 
@@ -22,7 +22,7 @@ Existing solutions focus on fact-checking, but users need **immediate, contextua
 
 ---
 
-## 💡 Solution Summary
+##  Solution Summary
 We built a **Harm-Focused Misinformation Risk Analysis System** that:
 
 - Analyzes message content for behavioral risk signals
@@ -36,14 +36,14 @@ No additional app installation is required.
 
 ---
 
-## 🧠 Core Capabilities
+##  Core Capabilities
 
-### 🔹 Supported Platforms
+###  Supported Platforms
 - any sms or whatsapp msg can sent to WhatsApp (via Twilio)
 
 ---
 
-### 🔹 Multilingual Support
+###  Multilingual Support
 | User Language | Bot Response |
 |---------------|--------------|
 | Tamil | Tamil + English |
@@ -52,7 +52,7 @@ No additional app installation is required.
 
 ---
 
-### 🔹 Harm-Based Detection Logic
+###  Harm-Based Detection Logic
 The system analyzes **free-text messages** using multiple risk signals:
 
 - Emotional manipulation (fear, sympathy, urgency)
@@ -66,7 +66,7 @@ These signals are combined to compute a **Harm Index**, which estimates potentia
 
 ---
 
-### 🔹 Ethical Classification
+###  Ethical Classification
 | Label | Meaning |
 |------|--------|
 | 🟢 LOW RISK | No strong harmful signals detected |
@@ -77,7 +77,7 @@ The system avoids false accusations and clearly explains its reasoning.
 
 ---
 
-### 🔹 Community Reporting (REPORT)
+###  Community Reporting (REPORT)
 - Users can type **REPORT** to report the previous message
 - Reports are stored in a **pending review list**
 - A message is confirmed as a scam only after **multiple independent reports**
@@ -86,7 +86,7 @@ The system avoids false accusations and clearly explains its reasoning.
 
 ---
 
-### 🔹 Admin Moderation Panel
+###  Admin Moderation Panel
 Admins can:
 - View pending reported messages
 - See report counts
@@ -97,31 +97,31 @@ This ensures transparency and responsible AI behavior.
 
 ---
 
-### 🔹 Government Guidance & Safety
+###  Government Guidance & Safety
 When users report scams, the system provides official complaint resources:
 
 - 🇮🇳 Cybercrime Portal: https://cybercrime.gov.in  
-- 🏦 RBI Banking Complaints: https://cms.rbi.org.in  
-- 📱 Telecom & Spam Reporting: https://sancharsaathi.gov.in  
+-  RBI Banking Complaints: https://cms.rbi.org.in  
+-  Telecom & Spam Reporting: https://sancharsaathi.gov.in  
 
 This connects AI insights with real-world action.
 
 ---
 
-## 🗂️ Data Design
+##  Data Design
 
-### 📌 pending_scams
+###  pending_scams
 - Stores community-reported messages
 - Under human review
 - Requires multiple reports before confirmation
 
-### 📌 confirmed_scams
+###  confirmed_scams
 - Verified harmful message patterns
 - Used to improve future detection
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 - Python
 - Flask
 - Twilio (WhatsApp & SMS)
@@ -132,7 +132,7 @@ This connects AI insights with real-world action.
 
 ---
 
-## 🧪 System Workflow
+##  System Workflow
 1. User sends or forwards a message
 2. Language is detected
 3. Harm signals are extracted
@@ -143,7 +143,7 @@ This connects AI insights with real-world action.
 
 ---
 
-## 🛡️ Ethics, Safety & Responsibility
+##  Ethics, Safety & Responsibility
 - The Harm Index is presented as **guidance**, not absolute truth
 - No automatic blocking or censorship
 - Human-in-the-loop moderation
@@ -152,7 +152,7 @@ This connects AI insights with real-world action.
 
 ---
 
-## 🌍 Impact
+##  Impact
 - Helps prevent financial fraud
 - Reduces panic and emotional exploitation
 - Supports non-technical and rural users
@@ -161,18 +161,42 @@ This connects AI insights with real-world action.
 
 ---
 
-## 🧒 Simple Explanation
+##  Simple Explanation
 > “This system warns people when a message might be dangerous, before they lose money or act in panic.”
 
 ---
 
-## ⚙️ How The Prototype Works
 
-This prototype works as a real-time WhatsApp-based AI assistant that helps users identify scam, fraud, and harmful messages using ethical, harm-focused reasoning.
+##  How to Start Using the Prototype (WhatsApp)
+
+Before using the scam detection system, you need to connect to the WhatsApp bot.
+
+1️⃣ **Message to this WhatsApp number**  
+    **+1 415 523 8886**
+
+2️⃣ **Open WhatsApp and send this message:**  
+```bash
+   join factor-sang
+```
+3️⃣ Once you receive the confirmation message, **you are connected** to the system.
+
+4️⃣ Now you can start sending:
+- Suspicious messages
+- Bank alerts
+- OTP or payment requests
+- Cybercrime or online safety questions
+
+The system will instantly analyze your message and guide you safely.
 
 ---
 
-### 🧩 Step 1: User Sends a Message
+## *No app installation required. Works directly inside WhatsApp.*
+
+##  How The Prototype Works : 
+
+This prototype works as a real-time WhatsApp-based AI assistant that helps users identify scam, fraud, and harmful messages using ethical, harm-focused reasoning.
+---
+###  Step 1: User Sends a Message
 The user forwards or types any message received on WhatsApp (SMS-style or chat text) to the bot.
 
 Examples:
@@ -184,7 +208,7 @@ Examples:
 
 ---
 
-### 🧠 Step 2: Language Detection
+###  Step 2: Language Detection
 The system automatically detects the message language:
 - Tamil
 - Hindi
@@ -194,7 +218,7 @@ The response language is adjusted accordingly.
 
 ---
 
-### 🔍 Step 3: Intent Identification
+###  Step 3: Intent Identification
 The system checks the message intent in the following order:
 1. Scam or fraud content  
 2. Cyber awareness or cybersecurity question  
@@ -204,7 +228,7 @@ This ensures natural conversation and avoids unnecessary warnings.
 
 ---
 
-### ⚠️ Step 4: Harm-Focused Risk Analysis
+###  Step 4: Harm-Focused Risk Analysis
 Instead of simple true/false classification, the system calculates a **Harm Index (0–10)** using:
 - Urgency or panic language
 - Emotional manipulation
@@ -216,7 +240,7 @@ Each detected risk factor contributes to the final score.
 
 ---
 
-### 🏷️ Step 5: Risk Classification
+###  Step 5: Risk Classification
 Based on the Harm Index:
 - **LOW RISK** – No strong harmful indicators
 - **CAUTION** – Suspicious or potentially misleading
@@ -226,7 +250,7 @@ Clear reasons are shown to the user for transparency.
 
 ---
 
-### 🌍 Step 6: Multilingual Explanation
+###  Step 6: Multilingual Explanation
 The system explains:
 - Why the message is risky
 - What action the user should take
@@ -238,7 +262,7 @@ Responses are shown in:
 
 ---
 
-### 🚨 Step 7: Community Reporting (Optional)
+###  Step 7: Community Reporting (Optional)
 If the user types **REPORT**:
 - The previous message is saved in a pending review list
 - The system waits for multiple independent reports
@@ -248,7 +272,7 @@ This prevents false reporting and misuse.
 
 ---
 
-### 🏛️ Step 8: Official Guidance
+###  Step 8: Official Guidance
 For confirmed or high-risk cases, the system provides links to official Indian portals:
 - Cybercrime reporting
 - Banking complaint systems
@@ -258,7 +282,7 @@ This bridges AI detection with real-world action.
 
 ---
 
-### 🧑‍💻 Step 9: Admin Moderation Dashboard
+###  Step 9: Admin Moderation Dashboard
 Admins can:
 - View pending scam reports
 - Approve or reject reports
@@ -269,20 +293,20 @@ All learning remains human-supervised and ethical.
 
 ---
 
-### 🔁 Step 10: Continuous Learning
+###  Step 10: Continuous Learning
 The system improves over time by:
 - Learning from confirmed scam patterns
 - Preventing learning from single or malicious reports
 - Maintaining explainability and user trust
 
-## 🏷️ Domain & Category
+##  Domain & Category
   . Primary Domain: Social Good
 
   . Secondary Domain: Applied Engineering
 
   . Use Case: Harm-Focused Misinformation & Scam Prevention
 
-## 📌 Conclusion
+##  Conclusion
 
 This project demonstrates how reasoning-based AI, combined with human oversight and ethical design, can reduce real-world harm caused by misinformation.
 It prioritizes impact, clarity, and responsibility over black-box automation.
