@@ -1,166 +1,225 @@
-# 🛡️ AI-Based WhatsApp Scam Detection System
+# 🛡️ Harm-Focused Misinformation Risk Analysis System
 
 ## 📌 Overview
-This project is a **WhatsApp-based AI system** designed to help people in India **identify scam and fraud messages** in real time.  
-It works directly on WhatsApp, supports **Tamil, Hindi, and English**, and focuses on **social good and digital safety**.
+This project is an **AI-based harm analysis system** designed to help people in India **assess the real-world risk of messages** received via **WhatsApp and SMS**.
 
-The system detects:
-- Bank impersonation scams
-- OTP fraud
-- Fake KYC alerts
-- Investment & lottery scams
-- Suspicious financial help requests
+Instead of treating misinformation as simply *true or false*, the system evaluates the **risk of harm** a message may cause — such as financial loss, panic, emotional manipulation, or unsafe actions.
 
-It also allows users to **report scams safely** and guides them to **official government complaint portals**.
+The solution works directly on platforms people already use and supports **English, Tamil, and Hindi**, making it suitable for grassroots adoption.
 
 ---
 
 ## 🎯 Problem Statement
-Millions of people receive fraudulent messages every day through WhatsApp and SMS.  
-Many users:
-- Trust messages claiming to be from banks
-- Are not comfortable with English
-- Lose money before realizing it is a scam
+In India, misinformation often spreads through private channels like WhatsApp and SMS.  
+Many harmful messages are not outright false but still cause damage by:
 
-There is a need for a **simple, accessible, and ethical AI solution** that works on platforms people already use.
+- Creating panic or urgency
+- Manipulating emotions
+- Triggering unsafe financial or personal actions
+- Exploiting language and trust barriers
 
----
-
-## 💡 Solution
-We built a **WhatsApp-based AI bot** that:
-- Analyzes incoming messages
-- Classifies them as **GENUINE**, **CAUTION**, or **FRAUD**
-- Responds in the user’s language
-- Avoids false accusations
-- Learns scam patterns safely through community reporting
-
-No app installation is required.
+Existing solutions focus on fact-checking, but users need **immediate, contextual guidance** about **potential harm**, not delayed verification.
 
 ---
 
-## 🧠 Key Features
+## 💡 Solution Summary
+We built a **Harm-Focused Misinformation Risk Analysis System** that:
+
+- Analyzes message content for behavioral risk signals
+- Computes a **Harm Index (0–10)** instead of binary truth labels
+- Classifies messages as **LOW RISK**, **CAUTION**, or **FRAUD**
+- Explains *why* a message is risky in simple language
+- Responds in the user’s preferred language
+- Uses community reporting and admin review for fairness
+
+No additional app installation is required.
+
+---
+
+## 🧠 Core Capabilities
+
+### 🔹 Supported Platforms
+- WhatsApp (via Twilio)
+- SMS (extensible via Twilio)
+
+---
 
 ### 🔹 Multilingual Support
 | User Language | Bot Response |
-|--------------|--------------|
+|---------------|--------------|
 | Tamil | Tamil + English |
 | Hindi | Hindi + English |
-| English | English only |
+| English | English |
 
 ---
 
-### 🔹 Scam Detection Logic
-The system uses **three layers of intelligence**:
+### 🔹 Harm-Based Detection Logic
+The system analyzes **free-text messages** using multiple risk signals:
 
-1. **Rule-based Detection**
-   - Scam keywords
-   - Bank impersonation
-   - Urgency and threat language
-   - Requests for sensitive data
+- Emotional manipulation (fear, sympathy, urgency)
+- Financial requests (money, UPI, donations)
+- Bank or authority impersonation
+- Requests for sensitive data (OTP, account details)
+- Urgent calls to action
+- Suspicious links or contact numbers
 
-2. **Special Safety Rules**
-   - Detects text-only bank scams (no links required)
-   - Flags unverified financial help requests as **CAUTION**
-   - Distinguishes OTP warnings from OTP requests
-
-3. **NLP Similarity Matching**
-   - Compares new messages with known scam patterns
-   - Uses TF-IDF and cosine similarity
+These signals are combined to compute a **Harm Index**, which estimates potential real-world impact.
 
 ---
 
 ### 🔹 Ethical Classification
 | Label | Meaning |
 |------|--------|
-| 🟢 GENUINE | No strong scam indicators |
-| 🟠 CAUTION | Suspicious but not confirmed |
-| 🔴 FRAUD | High confidence scam |
+| 🟢 LOW RISK | No strong harmful signals detected |
+| 🟠 CAUTION | Suspicious or unverified, needs user attention |
+| 🔴 FRAUD | High likelihood of harmful intent |
 
-This prevents false accusations and panic.
+The system avoids false accusations and clearly explains its reasoning.
 
 ---
 
 ### 🔹 Community Reporting (REPORT)
-- Users can type **REPORT** to report the **previous message**
-- Reports are stored in a **pending list**
-- A message is learned as a scam **only after 3 different users report it**
-- Prevents false or malicious reporting
+- Users can type **REPORT** to report the previous message
+- Reports are stored in a **pending review list**
+- A message is confirmed as a scam only after **multiple independent reports**
+- Prevents malicious or false reporting
+- Ensures human oversight
 
 ---
 
-### 🔹 Government Complaint Guidance
-When a user reports a scam, the system shares official reporting links:
+### 🔹 Admin Moderation Panel
+Admins can:
+- View pending reported messages
+- See report counts
+- Approve confirmed scam patterns
+- Delete false or misleading reports
 
-- 🇮🇳 Cybercrime Portal  
-  https://cybercrime.gov.in
-- 🏦 RBI Banking Complaints  
-  https://cms.rbi.org.in
-- 📱 TRAI Spam Reporting  
-  https://sancharsaathi.gov.in
-
-This connects AI detection with **real-world action**.
+This ensures transparency and responsible AI behavior.
 
 ---
 
-## 🗂️ Database Design
+### 🔹 Government Guidance & Safety
+When users report scams, the system provides official complaint resources:
+
+- 🇮🇳 Cybercrime Portal: https://cybercrime.gov.in  
+- 🏦 RBI Banking Complaints: https://cms.rbi.org.in  
+- 📱 Telecom & Spam Reporting: https://sancharsaathi.gov.in  
+
+This connects AI insights with real-world action.
+
+---
+
+## 🗂️ Data Design
 
 ### 📌 pending_scams
-- User-reported messages
-- Not yet confirmed
-- Requires multiple independent reports
+- Stores community-reported messages
+- Under human review
+- Requires multiple reports before confirmation
 
 ### 📌 confirmed_scams
-- Verified scam patterns
-- Used for future detection
-
----
-
-## 🧑‍💻 Admin Dashboard
-Endpoint:
-
-Admin can view:
-- Number of pending scam reports
-- Number of confirmed scams
+- Verified harmful message patterns
+- Used to improve future detection
 
 ---
 
 ## 🛠️ Tech Stack
 - Python
 - Flask
-- Twilio WhatsApp API
-- SQLite
-- Scikit-learn (NLP)
-- Railway (Deployment)
+- Twilio (WhatsApp & SMS)
+- SQLite (prototype database)
+- Scikit-learn (TF-IDF & similarity)
+- Railway (Cloud Deployment)
 - GitHub (Version Control)
 
 ---
 
-## 🚀 Deployment
-The application is deployed on the cloud and connected to WhatsApp using Twilio.
+## 🧪 System Workflow
+1. User sends or forwards a message
+2. Language is detected
+3. Harm signals are extracted
+4. Harm Index is calculated
+5. Risk level and explanation are returned
+6. User may report suspicious messages
+7. Admin reviews and confirms patterns
 
 ---
 
-## 🏷️ Domain & Category
-- **Primary Domain**: Social Good
-- **Secondary Domain**: Applied Engineering
-- **Use Case**: AI for Cybersecurity & Digital Safety
+## 🛡️ Ethics, Safety & Responsibility
+- The Harm Index is presented as **guidance**, not absolute truth
+- No automatic blocking or censorship
+- Human-in-the-loop moderation
+- Community validation before learning
+- External verification encouraged
+
+---
+
+## 🌍 Impact
+- Helps prevent financial fraud
+- Reduces panic and emotional exploitation
+- Supports non-technical and rural users
+- Encourages responsible digital behavior
+- Aligns with Digital India and cyber safety initiatives
 
 ---
 
 ## 🧒 Simple Explanation
-> “This project helps people avoid getting cheated on WhatsApp by warning them before they lose money.”
+> “This system warns people when a message might be dangerous, before they lose money or act in panic.”
 
 ---
 
-## 📌 Impact
-- Protects users from financial fraud
-- Works for non-technical and rural users
-- Encourages responsible reporting
-- Supports Digital India and cyber safety initiatives
+## 🚀 Procedures (Setup & Execution)
 
----
+### Step 1: Clone Repository
+```bash
+git clone https://github.com/<your-username>/<repository-name>.git
+cd <repository-name>
+``` 
+### Step 2: Install dependencies
+```bash
+pip install -r requirements.txt
+```
 
-## 📎 Conclusion
-This project demonstrates how **AI can be used responsibly for social good** by combining technology, ethics, and real-world impact.  
-It is designed to be **accessible, explainable, and practical** for everyday users.
+### Step 3: Configure Environment variables
+```bash
+export TWILIO_ACCOUNT_SID=your_account_sid
+export TWILIO_AUTH_TOKEN=your_auth_token
 
+```
+### Step 4: Run application
+```bash
+python messages.py
+```
+#### Server runs on
+```arudino
+http://localhost:8080
+```
+### Step 5: Whatsapp Integration
+#### Set twilio Webhook
+```arudino
+https://<deployment-url>/whatsapp
+```
+#### User commands:
+
+##### Send message → Harm analysis
+
+##### REPORT → Community reporting
+
+##### EXIT → Stop alert
+
+### Step 6: Admin Access
+```bash
+/admin
+/admin/pending
+
+```
+## 🏷️ Domain & Category
+  . Primary Domain: Social Good
+
+  . Secondary Domain: Applied Engineering
+
+  . Use Case: Harm-Focused Misinformation & Scam Prevention
+
+## 📌 Conclusion
+
+This project demonstrates how reasoning-based AI, combined with human oversight and ethical design, can reduce real-world harm caused by misinformation.
+It prioritizes impact, clarity, and responsibility over black-box automation.
