@@ -9,7 +9,7 @@ Before using the scam detection system, you need to connect to the WhatsApp bot.
 ```
 2️⃣ **Open WhatsApp and send this message:**  
 ```bash
-   join factor-sang
+  join introduced-sun
 ```
 3️⃣ Once you receive the confirmation message, **you are connected** to the system.
 
@@ -202,7 +202,7 @@ Before using the scam detection system, you need to connect to the WhatsApp bot.
 ```
 2️⃣ **Open WhatsApp and send this message:**  
 ```bash
-   join factor-sang
+   join introduced-sun
 ```
 3️⃣ Once you receive the confirmation message, **you are connected** to the system.
 
