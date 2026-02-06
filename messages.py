@@ -562,13 +562,11 @@ def confirmed():
 
 # ================= APPROVE =================
 @app.route("/admin/approve")
+@login_required
 def approve_scam():
-    try:
-        msg = request.args.get("msg")
+    msg = request.args.get("msg")
 
-        if not msg:
-            return redirect(url_for("admin_pending"))
-
+    if msg:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
 
@@ -576,7 +574,6 @@ def approve_scam():
             "INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",
             (msg,)
         )
-
         cur.execute(
             "DELETE FROM pending_scams WHERE message=?",
             (msg,)
@@ -585,22 +582,18 @@ def approve_scam():
         conn.commit()
         conn.close()
 
-    except Exception as e:
-        print("APPROVE ERROR:", e)
+        flash("✅ Message approved and marked as CONFIRMED SCAM", "success")
 
-    return redirect(url_for("admin_pending"))
-
+    return redirect("/admin")
 
 
 # ================= DELETE =================
 @app.route("/admin/delete")
+@login_required
 def delete_scam():
-    try:
-        msg = request.args.get("msg")
+    msg = request.args.get("msg")
 
-        if not msg:
-            return redirect(url_for("admin_pending"))
-
+    if msg:
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
 
@@ -612,11 +605,9 @@ def delete_scam():
         conn.commit()
         conn.close()
 
-    except Exception as e:
-        print("DELETE ERROR:", e)
+        flash("🗑️ Message deleted from pending queue", "danger")
 
-    return redirect(url_for("admin_pending"))
-
+    return redirect("/admin")
 
 # ================= EXPORT =================
 @app.route("/admin/export")
