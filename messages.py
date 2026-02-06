@@ -2,14 +2,13 @@ from flask import Flask, request, render_template, redirect, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
 from flask_socketio import SocketIO
 from twilio.twiml.messaging_response import MessagingResponse
-import openai
+from openai import OpenAI
 import sqlite3, os, re, datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ================= OPENAI =================
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ================= APP =================
 app = Flask(__name__)
@@ -67,6 +66,17 @@ def detect_language(text):
             return "HI"
 
     return "EN"
+
+GREETINGS = [
+    "hi", "hello", "hey", "who are you", "what is this",
+    "வணக்கம்", "ஹாய்", "நீங்கள் யார்",
+    "नमस्ते", "हैलो", "आप कौन हैं"
+]
+def is_greeting(text):
+    t = text.lower().strip()
+    return any(g in t for g in GREETINGS)
+
+
 # CYBER QUESTION DETECTION
 # ===============================
 CYBER_QN_KEYWORDS = [
@@ -87,21 +97,21 @@ def is_cyber_question(text):
 # OPENAI CYBER AWARENESS RESPONSE
 # ===============================
 def cyber_awareness_response(user_text, lang):
+
     system_prompt = (
         "You are a cybersecurity awareness assistant for Indian users. "
-        "Answer only educational questions about cybercrime, scams, and online safety. "
-        "Do NOT provide instructions for illegal activities or how to commit scams. "
-        "Keep the answer simple, safety-focused, and under 150 words."
+        "Explain scams, cybercrime, and online safety in simple terms. "
+        "Do NOT explain how to commit crimes. Keep under 150 words."
     )
 
     if lang == "TA":
-        system_prompt += " Respond in Tamil and English."
+        system_prompt += " Reply in Tamil and English."
     elif lang == "HI":
-        system_prompt += " Respond in Hindi and English."
+        system_prompt += " Reply in Hindi and English."
     else:
-        system_prompt += " Respond in English."
+        system_prompt += " Reply in English."
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_prompt},
@@ -111,6 +121,7 @@ def cyber_awareness_response(user_text, lang):
     )
 
     return response.choices[0].message.content.strip()
+
 # ================= KEYWORDS =================
 # ================= KEYWORDS =================
 
@@ -425,6 +436,29 @@ def whatsapp():
         answer = cyber_awareness_response(incoming, lang)
         reply.body(answer)
         return str(resp)
+
+    # GREETING RESPONSE
+    if is_greeting(incoming):
+        if lang == "TA":
+            reply.body(
+                "👋 வணக்கம்!\n"
+                "நான் மோசடி மற்றும் ஆபத்தான செய்திகளை சரிபார்க்க உதவுகிறேன்.\n"
+                "சந்தேகமான செய்தியை அனுப்புங்கள்."
+            )
+        elif lang == "HI":
+            reply.body(
+                "👋 नमस्ते!\n"
+                "मैं धोखाधड़ी और जोखिम भरे संदेशों की जांच करता हूँ।\n"
+                "कृपया कोई संदिग्ध संदेश भेजें।"
+            )
+        else:
+            reply.body(
+                "👋 Hi!\n"
+                "I help check messages for scams or harm.\n"
+                "Please paste a suspicious message."
+            )
+        return str(resp)
+
 
 
     # NON-SCAM & NON-CYBER QUESTION FALLBACK
