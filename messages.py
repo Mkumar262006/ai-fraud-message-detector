@@ -72,18 +72,23 @@ def detect_language(text):
 
 # CYBER QUESTION DETECTION
 # ===============================
-CYBER_QN_KEYWORDS = [
-    "cybercrime","cyber crime""cyber threat","online fraud","scam","cybersafety",
-    "phishing","otp fraud","bank fraud","digital fraud","cybersecurity"
-    "types of scams","what is scam","how scams work",
-    "cyber safety","online safety","is this scam"
-]
-
 def is_cyber_question(text):
-    t = text.lower()
+    t = text.lower().replace("-", " ").replace("_", " ")
+
+    question_words = ["what", "how", "why", "explain", "types", "define"]
+    cyber_keywords = [
+        "cybercrime", "cyber crime",
+        "cyber threat", "cyberthreat",
+        "online fraud", "scam", "scams",
+        "phishing", "otp fraud",
+        "bank fraud", "digital fraud",
+        "online safety", "cyber safety",
+        "internet safety"
+    ]
+
     return (
-        ("?" in text or any(w in t for w in ["what","how","why","explain","types"])) and
-        any(k in t for k in CYBER_QN_KEYWORDS)
+        any(q in t for q in question_words)
+        and any(k in t for k in cyber_keywords)
     )
 
 # ===============================
