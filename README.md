@@ -166,7 +166,7 @@ This connects AI insights with real-world action.
 
 ---
 
-## ⚙️ Prototype Working Procedure
+## ⚙️ How The Prototype Works
 
 This prototype works as a real-time WhatsApp-based AI assistant that helps users identify scam, fraud, and harmful messages using ethical, harm-focused reasoning.
 
