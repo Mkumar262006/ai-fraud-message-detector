@@ -51,6 +51,19 @@ Delete
 
 <br>
 <a href="/admin" class="text-blue-400">⬅ Back</a>
+<script>
+  const links = document.querySelectorAll("a[href^='/admin/approve'], a[href^='/admin/delete']");
+
+  links.forEach(link => {
+    link.addEventListener("click", function () {
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 5000);
+    });
+  });
+</script>
+
 
 </body>
 </html>
+
