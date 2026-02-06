@@ -466,22 +466,22 @@ def dashboard():
 
 # ================= PENDING =================
 @app.route("/admin/pending")
-@login_required
-def pending():
-
+def admin_pending():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT message, COUNT(DISTINCT reporter)
+        SELECT message, COUNT(DISTINCT reporter) as reports
         FROM pending_scams
         GROUP BY message
+        ORDER BY reports DESC
     """)
 
     data = cur.fetchall()
     conn.close()
 
-    return render_template("pending.html",data=data)
+    return render_template("pending.html", data=data)
+
 
 # ================= CONFIRMED =================
 @app.route("/admin/confirmed")
@@ -499,38 +499,39 @@ def confirmed():
 
 # ================= APPROVE =================
 @app.route("/admin/approve")
-@login_required
-def approve():
-
+def approve_scam():
     msg = request.args.get("msg")
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    cur.execute("INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",(msg,))
-    cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
+    cur.execute(
+        "INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",
+        (msg,)
+    )
+
+    cur.execute("DELETE FROM pending_scams WHERE message=?", (msg,))
+
     conn.commit()
     conn.close()
 
-    broadcast_stats()
-    return redirect("/admin/pending")
+    return redirect(url_for("admin_pending"))
+
 
 # ================= DELETE =================
 @app.route("/admin/delete")
-@login_required
-def delete():
-
+def delete_scam():
     msg = request.args.get("msg")
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    cur.execute("DELETE FROM pending_scams WHERE message=?",(msg,))
+    cur.execute("DELETE FROM pending_scams WHERE message=?", (msg,))
     conn.commit()
     conn.close()
 
-    broadcast_stats()
-    return redirect("/admin/pending")
+    return redirect(url_for("admin_pending"))
+
 
 # ================= EXPORT =================
 @app.route("/admin/export")
