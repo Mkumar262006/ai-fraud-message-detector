@@ -500,35 +500,57 @@ def confirmed():
 # ================= APPROVE =================
 @app.route("/admin/approve")
 def approve_scam():
-    msg = request.args.get("msg")
+    try:
+        msg = request.args.get("msg")
 
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+        if not msg:
+            return redirect(url_for("admin_pending"))
 
-    cur.execute(
-        "INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",
-        (msg,)
-    )
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
 
-    cur.execute("DELETE FROM pending_scams WHERE message=?", (msg,))
+        cur.execute(
+            "INSERT OR IGNORE INTO confirmed_scams(message) VALUES (?)",
+            (msg,)
+        )
 
-    conn.commit()
-    conn.close()
+        cur.execute(
+            "DELETE FROM pending_scams WHERE message=?",
+            (msg,)
+        )
+
+        conn.commit()
+        conn.close()
+
+    except Exception as e:
+        print("APPROVE ERROR:", e)
 
     return redirect(url_for("admin_pending"))
+
 
 
 # ================= DELETE =================
 @app.route("/admin/delete")
 def delete_scam():
-    msg = request.args.get("msg")
+    try:
+        msg = request.args.get("msg")
 
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
+        if not msg:
+            return redirect(url_for("admin_pending"))
 
-    cur.execute("DELETE FROM pending_scams WHERE message=?", (msg,))
-    conn.commit()
-    conn.close()
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+
+        cur.execute(
+            "DELETE FROM pending_scams WHERE message=?",
+            (msg,)
+        )
+
+        conn.commit()
+        conn.close()
+
+    except Exception as e:
+        print("DELETE ERROR:", e)
 
     return redirect(url_for("admin_pending"))
 
