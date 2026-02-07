@@ -334,9 +334,12 @@ The system improves over time by:
 
 
 ## Working Demo (WhatsApp Prototype)
+
 A live demonstration of the Harm-Focused Misinformation Risk Analysis System running on WhatsApp is available here:
+
 🔗 Demo Video:
 https://youtu.be/TDNukEDKftA?si=jwpBDJssYX9h0-lG�
+
 What the demo shows
 WhatsApp bot connection using Twilio
 Real-time analysis of suspicious messages
