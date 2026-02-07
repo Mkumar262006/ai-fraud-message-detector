@@ -190,7 +190,20 @@ This connects AI insights with real-world action.
 > “This system warns people when a message might be dangerous, before they lose money or act in panic.”
 
 ---
+## Working Demo (WhatsApp Prototype)
 
+A live demonstration of the Harm-Focused Misinformation Risk Analysis System running on WhatsApp is available here:
+
+🔗 Demo Video:
+https://youtu.be/TDNukEDKftA?si=jwpBDJssYX9h0-lG�
+
+What the demo shows
+WhatsApp bot connection using Twilio
+Real-time analysis of suspicious messages
+Harm Index calculation and risk classification
+Multilingual responses (English / Tamil / Hindi)
+Ethical explanations instead of binary true/false labels
+This video demonstrates the end-to-end working prototype, including user interaction, risk reasoning, and safety guidance.
 
 ##  How to Start Using the Prototype (WhatsApp)
 
@@ -333,20 +346,6 @@ The system improves over time by:
   . Use Case: Harm-Focused Misinformation & Scam Prevention
 
 
-## Working Demo (WhatsApp Prototype)
-
-A live demonstration of the Harm-Focused Misinformation Risk Analysis System running on WhatsApp is available here:
-
-🔗 Demo Video:
-https://youtu.be/TDNukEDKftA?si=jwpBDJssYX9h0-lG�
-
-What the demo shows
-WhatsApp bot connection using Twilio
-Real-time analysis of suspicious messages
-Harm Index calculation and risk classification
-Multilingual responses (English / Tamil / Hindi)
-Ethical explanations instead of binary true/false labels
-This video demonstrates the end-to-end working prototype, including user interaction, risk reasoning, and safety guidance.
 
 ##  Conclusion
 
